@@ -21,6 +21,10 @@ import { RevokeVoucherDto } from './dto/revoke-voucher.dto';
 // headroom while the per-IP daily VARA ceiling still bounds total abuse.
 const VOUCHER_THROTTLE = { default: { limit: 6, ttl: 3600000 } };
 
+// POST /voucher/revoke — does not mint funds, so it should not share the
+// stricter issuance throttle. It is still bounded to avoid accidental spam.
+const VOUCHER_REVOKE_THROTTLE = { default: { limit: 20, ttl: 60000 } };
+
 // GET /voucher/:account — 20 per IP per minute.
 // Read-only state check, no VARA cost. Cheap enough that clients can poll
 // mid-session to monitor balance without hitting the limit under honest use.
@@ -59,7 +63,7 @@ export class GaslessController {
   }
 
   @Post('voucher/revoke')
-  @Throttle(VOUCHER_THROTTLE)
+  @Throttle(VOUCHER_REVOKE_THROTTLE)
   revokeVoucher(@Body() body: RevokeVoucherDto) {
     return this.service.revokeVoucher(body);
   }

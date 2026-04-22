@@ -223,6 +223,30 @@ function shortAddress(address: string) {
 
 function formatError(error: unknown) {
   if (error instanceof Error) return error.message;
+
+  if (error && typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    const parts = [
+      value.message,
+      value.name,
+      value.section && value.method ? `${String(value.section)}.${String(value.method)}` : null,
+      value.docs,
+      value.type,
+    ]
+      .flatMap((part) => (Array.isArray(part) ? part : [part]))
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0);
+
+    if (parts.length > 0) {
+      return parts.join(" · ");
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
+
   return String(error);
 }
 
@@ -768,7 +792,7 @@ function App() {
           throw error;
         }
 
-        if (activeVoucher && isInsufficientBalanceError(error)) {
+        if (activeVoucher) {
           cancelledVoucherIdRef.current = activeVoucher.voucherId;
           setSubmitMessage("Voucher cannot pay this transaction. Revoking voucher.");
           try {
