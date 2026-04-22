@@ -1,0 +1,46 @@
+type SubmitRunReply = struct {
+  run: RunRecord,
+  player_points: u128,
+  best_height: u32,
+  improved: bool,
+};
+
+type RunRecord = struct {
+  run_id: str,
+  player: actor_id,
+  height: u32,
+  score: u32,
+  duration_ms: u64,
+  points_awarded: u128,
+};
+
+type LeaderboardEntry = struct {
+  player: actor_id,
+  points: u128,
+  best_height: u32,
+};
+
+constructor {
+  Create : ();
+};
+
+service Game {
+  SubmitRun : (run_id: str, height: u32, score: u32, duration_ms: u64) -> SubmitRunReply;
+  query Leaderboard : (limit: u32) -> vec LeaderboardEntry;
+  query PlayerBestHeight : (player: actor_id) -> u32;
+  query PlayerBestRun : (player: actor_id) -> opt RunRecord;
+  query PlayerPoints : (player: actor_id) -> u128;
+  query PlayerRank : (player: actor_id) -> opt u32;
+  query Version : () -> str;
+
+  events {
+    BestRunUpdated: struct {
+      run_id: str,
+      player: actor_id,
+      height: u32,
+      score: u32,
+      points: u128,
+    };
+  }
+};
+
