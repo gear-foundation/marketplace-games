@@ -11,4 +11,4 @@ RUN npm run build
 
 EXPOSE 3001
 
-CMD ["node", "dist/src/main.js"]
+CMD ["sh", "-c", "npm run seed && node dist/src/main.js"]

@@ -77,6 +77,15 @@ type ChainRunRecord = {
   pointsAwarded?: unknown;
 };
 
+type VoucherState = {
+  voucherId: string | null;
+  programs?: string[];
+};
+
+type VoucherCreateResponse = {
+  voucherId?: unknown;
+};
+
 const WORLD_WIDTH = 420;
 const WORLD_HEIGHT = 700;
 const GRAVITY = 1850;
@@ -110,6 +119,7 @@ const BOOST_SPRING_FIRST_ACTIVE_FRAME = 2;
 const APP_NAME = "Skybound Jump";
 const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://testnet.vara.network";
 const VARA_PROGRAM_ID = import.meta.env.VITE_PROGRAM_ID || "";
+const VOUCHER_BACKEND_URL = (import.meta.env.VITE_VOUCHER_BACKEND_URL || "").replace(/\/+$/, "");
 
 const initialLeaderboardTop: LeaderboardEntry[] = [
   { name: "LUISA", points: 8200, height: 7600 },
@@ -127,6 +137,10 @@ function makeRunId() {
 
 function getConfiguredProgramId(programId: string): `0x${string}` | "" {
   return /^0x[0-9a-fA-F]{64}$/.test(programId) ? (programId as `0x${string}`) : "";
+}
+
+function getConfiguredBackendUrl(url: string) {
+  return /^https?:\/\/.+/.test(url) ? url : "";
 }
 
 function toDisplayNumber(value: unknown) {
@@ -189,6 +203,51 @@ async function createSailsClient(api: Parameters<Sails["setApi"]>[0], programId:
   const [{ Sails }, { SailsIdlParser }] = await Promise.all([import("sails-js"), import("sails-js-parser")]);
   const parser = await SailsIdlParser.new();
   return new Sails(parser).setApi(api).setProgramId(programId).parseIdl(contractIdl);
+}
+
+async function readVoucherJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const json = text ? JSON.parse(text) : {};
+
+  if (!response.ok) {
+    const message =
+      typeof json?.message === "string"
+        ? json.message
+        : Array.isArray(json?.message)
+          ? json.message.join(", ")
+          : `Voucher backend returned ${response.status}`;
+    throw new Error(message);
+  }
+
+  return json as T;
+}
+
+async function ensureVoucher(backendUrl: string, account: string, programId: `0x${string}`): Promise<`0x${string}`> {
+  const stateResponse = await fetch(`${backendUrl}/voucher/${encodeURIComponent(account)}`);
+  const state = await readVoucherJson<VoucherState>(stateResponse);
+  const normalizedProgram = programId.toLowerCase();
+
+  if (
+    state.voucherId &&
+    /^0x[0-9a-fA-F]{64}$/.test(state.voucherId) &&
+    state.programs?.some((program) => program.toLowerCase() === normalizedProgram)
+  ) {
+    return state.voucherId as `0x${string}`;
+  }
+
+  const createResponse = await fetch(`${backendUrl}/voucher`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ account, program: programId }),
+  });
+  const created = await readVoucherJson<VoucherCreateResponse>(createResponse);
+  const voucherId = String(created.voucherId || "");
+
+  if (!/^0x[0-9a-fA-F]{64}$/.test(voucherId)) {
+    throw new Error("Voucher backend returned an invalid voucher id.");
+  }
+
+  return voucherId as `0x${string}`;
 }
 
 function randomPlatformKind(index: number): Platform["kind"] {
@@ -325,6 +384,7 @@ function App() {
   const [sailsClient, setSailsClient] = useState<Sails | null>(null);
 
   const programId = useMemo(() => getConfiguredProgramId(VARA_PROGRAM_ID), []);
+  const voucherBackendUrl = useMemo(() => getConfiguredBackendUrl(VOUCHER_BACKEND_URL), []);
   const pointsPreview = useMemo(() => Math.max(0, height + Math.floor(score / 10)), [height, score]);
   const shouldShowCurrentPlayerRank =
     currentPlayerRank !== null && currentPlayerRank > VISIBLE_LEADERBOARD_LIMIT && currentPlayerEntry !== null;
@@ -334,12 +394,13 @@ function App() {
     if (!runSummary) return "finish a run first";
     if (!isApiReady) return "network is connecting";
     if (!programId) return "program id is not configured";
+    if (!voucherBackendUrl) return "voucher backend url is not configured";
     if (!sailsClient) return "contract client is loading";
     if (!isAccountReady) return "wallets are still loading";
     if (!isAnyWallet) return "no wallet extension found";
     if (!account) return "wallet required";
     return "";
-  }, [account, isAccountReady, isAnyWallet, isApiReady, programId, runSummary, sailsClient]);
+  }, [account, isAccountReady, isAnyWallet, isApiReady, programId, runSummary, sailsClient, voucherBackendUrl]);
 
   const syncStatus = useCallback((next: RunStatus) => {
     statusRef.current = next;
@@ -476,12 +537,23 @@ function App() {
       return;
     }
 
+    const configuredProgramId = programId;
+    if (!configuredProgramId) {
+      setSubmitStatus("error");
+      setSubmitMessage("program id is not configured");
+      return;
+    }
+
     try {
       setSubmitStatus("pending");
-      setSubmitMessage("Confirm the result transaction in your wallet extension.");
+      setSubmitMessage("Requesting gas voucher for this result.");
+
+      const voucherId = await ensureVoucher(voucherBackendUrl, account.decodedAddress || account.address, configuredProgramId);
 
       const tx = game.functions.SubmitRun(runSummary.runId, runSummary.height, runSummary.score, runSummary.durationMs);
       tx.withAccount(account.address, { signer: account.signer }).withValue(0n);
+      tx.withVoucher(voucherId);
+      setSubmitMessage("Confirm the result transaction in your wallet extension. Gas is covered by voucher.");
       await tx.calculateGas(false, 20);
 
       const result = await tx.signAndSend();
@@ -500,7 +572,7 @@ function App() {
           : `On-chain submit failed: ${formatError(error)}`,
       );
     }
-  }, [account, refreshChainState, runSummary, sailsClient, submitDisabledReason]);
+  }, [account, programId, refreshChainState, runSummary, sailsClient, submitDisabledReason, voucherBackendUrl]);
 
   const startRunWithButtonSpring = useCallback(() => {
     springJumpButton();
