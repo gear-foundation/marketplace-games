@@ -30,6 +30,7 @@ const DECODED = `0x${ACCOUNT}`;
 const IP = '127.0.0.1';
 const DAILY_CAP = 100;
 const IP_CEILING = 1000;
+const VALID_VOUCHER_ID = '0x1111111111111111111111111111111111111111111111111111111111111111';
 
 function makeProgram(overrides: Partial<GaslessProgram> = {}): GaslessProgram {
   return {
@@ -73,10 +74,10 @@ function yesterdayMidnightMinusOneSec(): Date {
 describe('GaslessService (Vara Arcade policy)', () => {
   let service: GaslessService;
   let voucherSvc: jest.Mocked<
-    Pick<VoucherService, 'getVoucher' | 'issue' | 'update' | 'appendProgramOnly' | 'getVoucherBalance'>
+    Pick<VoucherService, 'getVoucher' | 'issue' | 'update' | 'appendProgramOnly' | 'getVoucherBalance' | 'revoke'>
   >;
   let programRepo: { findOneBy: jest.Mock };
-  let voucherRepo: Record<string, never>;
+  let voucherRepo: { findOne: jest.Mock };
   let ds: { createQueryRunner: jest.Mock };
   let qrQuery: jest.Mock;
   let qrRelease: jest.Mock;
@@ -86,7 +87,9 @@ describe('GaslessService (Vara Arcade policy)', () => {
     programRepo = {
       findOneBy: jest.fn().mockResolvedValue(makeProgram()),
     };
-    voucherRepo = {};
+    voucherRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
     qrQuery = jest.fn().mockResolvedValue([]);
     qrRelease = jest.fn().mockResolvedValue(undefined);
     ds = {
@@ -109,6 +112,7 @@ describe('GaslessService (Vara Arcade policy)', () => {
       update: jest.fn().mockResolvedValue(undefined),
       appendProgramOnly: jest.fn().mockResolvedValue(undefined),
       getVoucherBalance: jest.fn().mockResolvedValue(0n),
+      revoke: jest.fn().mockResolvedValue(undefined),
     };
 
     const module = await Test.createTestingModule({
@@ -366,7 +370,45 @@ describe('GaslessService (Vara Arcade policy)', () => {
       varaBalance: '0',
       balanceKnown: true,
       fundedToday: false,
+      revokedToday: false,
     });
+  });
+
+  it('getVoucherState reports revokedToday=true for a same-day revoked voucher', async () => {
+    voucherSvc.getVoucher.mockResolvedValue(null);
+    voucherRepo.findOne.mockResolvedValue(makeVoucher({ revoked: true, lastRenewedAt: new Date() }));
+    const state = await service.getVoucherState(ACCOUNT);
+    expect(state.voucherId).toBe(null);
+    expect(state.fundedToday).toBe(true);
+    expect(state.revokedToday).toBe(true);
+  });
+
+  it('revokeVoucher revokes the active matching voucher', async () => {
+    const voucher = makeVoucher({ voucherId: VALID_VOUCHER_ID });
+    voucherSvc.getVoucher.mockResolvedValue(voucher);
+    const result = await service.revokeVoucher({ account: ACCOUNT, voucherId: voucher.voucherId });
+    expect(voucherSvc.revoke).toHaveBeenCalledWith(voucher);
+    expect(result).toEqual({ revoked: true, voucherId: voucher.voucherId });
+  });
+
+  it('revokeVoucher throws 400 when voucher id does not match active voucher', async () => {
+    voucherSvc.getVoucher.mockResolvedValue(makeVoucher());
+    await expect(
+      service.revokeVoucher({
+        account: ACCOUNT,
+        voucherId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('does not issue a new same-day voucher after revoke', async () => {
+    voucherSvc.getVoucher.mockResolvedValue(null);
+    voucherRepo.findOne.mockResolvedValue(makeVoucher({ revoked: true, lastRenewedAt: new Date() }));
+
+    await expect(
+      service.requestVoucher({ account: ACCOUNT, program: PROGRAM }, IP),
+    ).rejects.toThrow('Daily voucher already used');
+    expect(voucherSvc.issue).not.toHaveBeenCalled();
   });
 
   it('getVoucherState returns fundedToday=false when lastRenewedAt < midnight', async () => {

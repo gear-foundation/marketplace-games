@@ -183,6 +183,7 @@ canvas {
 
 .stat-grid div,
 .result-panel,
+.voucher-panel,
 .leaderboard {
   border: 2px solid rgba(23, 32, 51, 0.88);
   border-radius: 8px;
@@ -228,11 +229,13 @@ canvas {
 }
 
 .result-panel,
+.voucher-panel,
 .leaderboard {
   padding: 16px;
 }
 
 .result-panel h2,
+.voucher-panel h2,
 .leaderboard h2 {
   margin: 0;
   font-size: 18px;
@@ -280,6 +283,14 @@ canvas {
 
 .submit-note.pending {
   color: #1d4ed8;
+}
+
+.voucher-note {
+  margin: 12px 0 0;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .chain-note {

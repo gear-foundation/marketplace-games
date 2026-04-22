@@ -80,10 +80,28 @@ type ChainRunRecord = {
 type VoucherState = {
   voucherId: string | null;
   programs?: string[];
+  varaBalance?: string | null;
+  balanceKnown?: boolean;
+  validUpTo?: string | null;
+  fundedToday?: boolean;
+  revokedToday?: boolean;
 };
 
 type VoucherCreateResponse = {
   voucherId?: unknown;
+};
+
+type VoucherRevokeResponse = {
+  revoked?: boolean;
+  voucherId?: unknown;
+  reason?: unknown;
+};
+
+type VoucherResult = {
+  voucherId: `0x${string}`;
+  balanceText: string;
+  balancePlanck: bigint | null;
+  source: "existing" | "issued";
 };
 
 const WORLD_WIDTH = 420;
@@ -97,6 +115,7 @@ const PLATFORM_GAP_MAX = 118;
 const VISIBLE_LEADERBOARD_LIMIT = 5;
 const CURRENT_PLAYER_NAME = "YOU";
 const BANANA_SCORE = 250;
+const PLANCK_PER_VARA = 1_000_000_000_000n;
 const MONKEY_SPRITE_WIDTH = 86;
 const MONKEY_SPRITE_HEIGHT = 112;
 const BANANA_SPRITE_SIZE = 42;
@@ -153,6 +172,39 @@ function toDisplayNumber(value: unknown) {
   return 0;
 }
 
+function parsePlanck(value: string | null | undefined) {
+  try {
+    return value ? BigInt(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatVaraAmount(planck: bigint) {
+  const whole = planck / PLANCK_PER_VARA;
+  const fractional = (planck % PLANCK_PER_VARA).toString().padStart(12, "0").slice(0, 2);
+  return `${whole.toString()}.${fractional}`;
+}
+
+function formatPlanckVara(value: string | null | undefined) {
+  const planck = parsePlanck(value);
+  if (planck === null) {
+    return "balance unknown";
+  }
+
+  return `${formatVaraAmount(planck)} VARA left`;
+}
+
+function formatNextVoucherWait() {
+  const now = new Date();
+  const nextUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  const msLeft = Math.max(0, nextUtcMidnight - now.getTime());
+  const hoursLeft = Math.ceil(msLeft / 3_600_000);
+
+  if (hoursLeft <= 1) return "less than 1 hour";
+  return `about ${hoursLeft} hours`;
+}
+
 function unwrapOption<T>(value: unknown): T | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "object") {
@@ -179,9 +231,20 @@ function isSignatureRejection(error: unknown) {
   return (
     message.includes("reject") ||
     message.includes("denied") ||
-    message.includes("cancel") ||
-    message.includes("closed") ||
-    message.includes("user")
+    message.includes("user cancelled") ||
+    message.includes("cancelled by user") ||
+    message.includes("user rejected") ||
+    message.includes("closed")
+  );
+}
+
+function isInsufficientBalanceError(error: unknown) {
+  const message = formatError(error).toLowerCase();
+  return (
+    message.includes("1010") ||
+    message.includes("inability to pay") ||
+    message.includes("balance too low") ||
+    message.includes("insufficient")
   );
 }
 
@@ -222,9 +285,33 @@ async function readVoucherJson<T>(response: Response): Promise<T> {
   return json as T;
 }
 
-async function ensureVoucher(backendUrl: string, account: string, programId: `0x${string}`): Promise<`0x${string}`> {
-  const stateResponse = await fetch(`${backendUrl}/voucher/${encodeURIComponent(account)}`);
-  const state = await readVoucherJson<VoucherState>(stateResponse);
+async function getVoucherState(backendUrl: string, account: string) {
+  const response = await fetch(`${backendUrl}/voucher/${encodeURIComponent(account)}`);
+  return readVoucherJson<VoucherState>(response);
+}
+
+async function revokeVoucher(backendUrl: string, account: string, voucherId: `0x${string}`) {
+  const response = await fetch(`${backendUrl}/voucher/revoke`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ account, voucherId }),
+  });
+  return readVoucherJson<VoucherRevokeResponse>(response);
+}
+
+function describeVoucher(state: VoucherState, programId: `0x${string}`) {
+  if (!state.voucherId || !/^0x[0-9a-fA-F]{64}$/.test(state.voucherId)) {
+    return "";
+  }
+
+  const hasGameAccess = state.programs?.some((program) => program.toLowerCase() === programId.toLowerCase());
+  const accessText = hasGameAccess ? "Voucher ready" : "Voucher found";
+  const balanceText = state.balanceKnown === false ? "balance unknown" : formatPlanckVara(state.varaBalance);
+  return `${accessText} · ${balanceText} · ${shortAddress(state.voucherId)}`;
+}
+
+async function ensureVoucher(backendUrl: string, account: string, programId: `0x${string}`): Promise<VoucherResult> {
+  const state = await getVoucherState(backendUrl, account);
   const normalizedProgram = programId.toLowerCase();
 
   if (
@@ -232,7 +319,12 @@ async function ensureVoucher(backendUrl: string, account: string, programId: `0x
     /^0x[0-9a-fA-F]{64}$/.test(state.voucherId) &&
     state.programs?.some((program) => program.toLowerCase() === normalizedProgram)
   ) {
-    return state.voucherId as `0x${string}`;
+    return {
+      voucherId: state.voucherId as `0x${string}`,
+      balanceText: state.balanceKnown === false ? "balance unknown" : formatPlanckVara(state.varaBalance),
+      balancePlanck: state.balanceKnown === false ? null : parsePlanck(state.varaBalance),
+      source: "existing",
+    };
   }
 
   const createResponse = await fetch(`${backendUrl}/voucher`, {
@@ -247,7 +339,15 @@ async function ensureVoucher(backendUrl: string, account: string, programId: `0x
     throw new Error("Voucher backend returned an invalid voucher id.");
   }
 
-  return voucherId as `0x${string}`;
+  const refreshedState = await getVoucherState(backendUrl, account).catch(() => null);
+
+  return {
+    voucherId: voucherId as `0x${string}`,
+    balanceText:
+      refreshedState?.balanceKnown === false ? "balance unknown" : formatPlanckVara(refreshedState?.varaBalance),
+    balancePlanck: refreshedState?.balanceKnown === false ? null : parsePlanck(refreshedState?.varaBalance),
+    source: "issued",
+  };
 }
 
 function randomPlatformKind(index: number): Platform["kind"] {
@@ -368,18 +468,21 @@ function App() {
   const jumpButtonTimerRef = useRef<number | null>(null);
   const leaderboardTopRef = useRef<LeaderboardEntry[]>(initialLeaderboardTop);
   const autoSubmittedRunIdRef = useRef<string | null>(null);
+  const cancelledVoucherIdRef = useRef<string | null>(null);
 
   const [status, setStatus] = useState<RunStatus>("ready");
   const [height, setHeight] = useState(0);
   const [score, setScore] = useState(0);
   const [bananas, setBananas] = useState(0);
   const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
+  const [submittedRunId, setSubmittedRunId] = useState<string | null>(null);
   const [leaderboardTop, setLeaderboardTop] = useState(initialLeaderboardTop);
   const [currentPlayerRank, setCurrentPlayerRank] = useState<number | null>(null);
   const [currentPlayerEntry, setCurrentPlayerEntry] = useState<LeaderboardEntry | null>(null);
   const [isJumpButtonSpringing, setIsJumpButtonSpringing] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "ready" | "pending" | "success" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState("");
+  const [voucherMessage, setVoucherMessage] = useState("");
   const [chainStatusMessage, setChainStatusMessage] = useState("");
   const [sailsClient, setSailsClient] = useState<Sails | null>(null);
 
@@ -388,11 +491,11 @@ function App() {
   const pointsPreview = useMemo(() => Math.max(0, height + Math.floor(score / 10)), [height, score]);
   const shouldShowCurrentPlayerRank =
     currentPlayerRank !== null && currentPlayerRank > VISIBLE_LEADERBOARD_LIMIT && currentPlayerEntry !== null;
-  const hasUnsubmittedRun = runSummary !== null && submitStatus !== "success";
+  const hasUnsubmittedRun = runSummary !== null && submittedRunId !== runSummary.runId;
   const startActionLabel = hasUnsubmittedRun ? "Sign result" : status === "playing" ? "Restart run" : "Start run";
   const submitDisabledReason = useMemo(() => {
     if (!runSummary) return "finish a run first";
-    if (!isApiReady) return "network is connecting";
+    if (!isApiReady || !api) return "network is connecting";
     if (!programId) return "program id is not configured";
     if (!voucherBackendUrl) return "voucher backend url is not configured";
     if (!sailsClient) return "contract client is loading";
@@ -400,7 +503,7 @@ function App() {
     if (!isAnyWallet) return "no wallet extension found";
     if (!account) return "wallet required";
     return "";
-  }, [account, isAccountReady, isAnyWallet, isApiReady, programId, runSummary, sailsClient, voucherBackendUrl]);
+  }, [account, api, isAccountReady, isAnyWallet, isApiReady, programId, runSummary, sailsClient, voucherBackendUrl]);
 
   const syncStatus = useCallback((next: RunStatus) => {
     statusRef.current = next;
@@ -454,6 +557,7 @@ function App() {
         setCurrentPlayerRank(null);
         setCurrentPlayerEntry(null);
         setChainStatusMessage("");
+        setVoucherMessage("");
         return;
       }
 
@@ -485,6 +589,35 @@ function App() {
     void refreshChainState();
   }, [refreshChainState]);
 
+  const refreshVoucherState = useCallback(async () => {
+    if (!voucherBackendUrl || !programId || !account?.decodedAddress) {
+      setVoucherMessage("");
+      return;
+    }
+
+    try {
+      const state = await getVoucherState(voucherBackendUrl, account.decodedAddress);
+      if (!state.voucherId && state.revokedToday) {
+        setVoucherMessage(`Daily voucher revoked · next voucher in ${formatNextVoucherWait()}`);
+        return;
+      }
+
+      if (state.voucherId && cancelledVoucherIdRef.current === state.voucherId) {
+        const balanceText = state.balanceKnown === false ? "balance unknown" : formatPlanckVara(state.varaBalance);
+        setVoucherMessage(`Voucher cancelled for this session · ${balanceText} · ${shortAddress(state.voucherId)}`);
+        return;
+      }
+
+      setVoucherMessage(describeVoucher(state, programId));
+    } catch {
+      setVoucherMessage("Voucher status unavailable.");
+    }
+  }, [account?.decodedAddress, programId, voucherBackendUrl]);
+
+  useEffect(() => {
+    void refreshVoucherState();
+  }, [refreshVoucherState]);
+
   const resetRun = useCallback(() => {
     const startingPlatforms = createPlatforms();
     playerRef.current = { x: 210, y: 560, vx: 0, vy: JUMP_VELOCITY, radius: 18 };
@@ -502,6 +635,7 @@ function App() {
     setScore(0);
     setBananas(0);
     setRunSummary(null);
+    setSubmittedRunId(null);
     autoSubmittedRunIdRef.current = null;
     setSubmitStatus("idle");
     setSubmitMessage("");
@@ -524,7 +658,7 @@ function App() {
   }, []);
 
   const submitRunOnChain = useCallback(async () => {
-    if (submitDisabledReason || !runSummary || !account || !sailsClient) {
+    if (submitDisabledReason || !runSummary || !account || !sailsClient || !api) {
       setSubmitStatus("error");
       setSubmitMessage(submitDisabledReason || "wallet is not ready");
       return;
@@ -544,26 +678,122 @@ function App() {
       return;
     }
 
-    try {
-      setSubmitStatus("pending");
-      setSubmitMessage("Requesting gas voucher for this result.");
+    const submitAccountId = account.decodedAddress || account.address;
 
-      const voucherId = await ensureVoucher(voucherBackendUrl, account.decodedAddress || account.address, configuredProgramId);
-
+    const submitTransaction = async (voucherId?: `0x${string}`) => {
       const tx = game.functions.SubmitRun(runSummary.runId, runSummary.height, runSummary.score, runSummary.durationMs);
-      tx.withAccount(account.address, { signer: account.signer }).withValue(0n);
-      tx.withVoucher(voucherId);
-      setSubmitMessage("Confirm the result transaction in your wallet extension. Gas is covered by voucher.");
+      tx.withAccount(submitAccountId, { signer: account.signer }).withValue(0n);
+      if (voucherId) {
+        tx.withVoucher(voucherId);
+      }
       await tx.calculateGas(false, 20);
 
       const result = await tx.signAndSend();
       const reply = (await result.response()) as { improved?: boolean };
+      return { result, reply };
+    };
 
-      setSubmitStatus("success");
+    const getWalletBalance = async () => {
+      const balance = await api.balance.findOut(submitAccountId);
+      return balance.toBigInt();
+    };
+
+    const submitWithWalletBalance = async (walletBalance: bigint | null) => {
+      const walletBalanceText = walletBalance === null ? "wallet balance" : `${formatVaraAmount(walletBalance)} VARA available`;
       setSubmitMessage(
-        `${reply.improved ? "Best run updated" : "Run submitted; best run unchanged"} · tx ${shortAddress(result.txHash)}`,
+        `Voucher cannot pay this transaction. Confirm wallet payment from ${shortAddress(submitAccountId)} (${walletBalanceText}).`,
       );
-      await refreshChainState();
+
+      try {
+        const { result, reply } = await submitTransaction();
+        setSubmittedRunId(runSummary.runId);
+        setSubmitStatus("success");
+        setSubmitMessage(
+          `${reply.improved ? "Best run updated" : "Run submitted; best run unchanged"} · paid with wallet balance · tx ${shortAddress(
+            result.txHash,
+          )}`,
+        );
+        await refreshVoucherState();
+        await refreshChainState();
+      } catch (error) {
+        if (isSignatureRejection(error)) {
+          throw error;
+        }
+
+        if (isInsufficientBalanceError(error)) {
+          const balanceText =
+            walletBalance === null ? "this wallet balance" : `this wallet balance (${formatVaraAmount(walletBalance)} VARA)`;
+          throw new Error(
+            `Voucher cannot pay this transaction, and wallet payment from ${shortAddress(
+              submitAccountId,
+            )} failed because ${balanceText} is too low to pay fees. Top up VARA to continue, or come back in ${formatNextVoucherWait()} for the next daily voucher.`,
+          );
+        }
+
+        throw error;
+      }
+    };
+
+    try {
+      setSubmitStatus("pending");
+      setSubmitMessage("Requesting gas voucher for this result.");
+
+      let activeVoucher: VoucherResult | null = null;
+
+      try {
+        const voucher = await ensureVoucher(voucherBackendUrl, account.decodedAddress || account.address, configuredProgramId);
+        activeVoucher = voucher;
+        setVoucherMessage(
+          `${voucher.source === "issued" ? "Voucher issued" : "Voucher ready"} · ${voucher.balanceText} · ${shortAddress(voucher.voucherId)}`,
+        );
+
+        if (cancelledVoucherIdRef.current === voucher.voucherId) {
+          throw new Error("Voucher was cancelled after a failed payment attempt.");
+        }
+
+        setSubmitMessage("Confirm the result transaction in your wallet extension. Gas is covered by voucher.");
+        const { result, reply } = await submitTransaction(voucher.voucherId);
+
+        cancelledVoucherIdRef.current = null;
+        setSubmittedRunId(runSummary.runId);
+        setSubmitStatus("success");
+        setSubmitMessage(
+          `${reply.improved ? "Best run updated" : "Run submitted; best run unchanged"} · tx ${shortAddress(result.txHash)}`,
+        );
+        await refreshVoucherState();
+        await refreshChainState();
+        return;
+      } catch (error) {
+        if (isSignatureRejection(error)) {
+          throw error;
+        }
+
+        if (activeVoucher && isInsufficientBalanceError(error)) {
+          cancelledVoucherIdRef.current = activeVoucher.voucherId;
+          setSubmitMessage("Voucher cannot pay this transaction. Revoking voucher.");
+          try {
+            await revokeVoucher(voucherBackendUrl, account.decodedAddress || account.address, activeVoucher.voucherId);
+            setVoucherMessage(`Voucher revoked · ${shortAddress(activeVoucher.voucherId)}`);
+          } catch (revokeError) {
+            setVoucherMessage(`Voucher revoke failed · ${formatError(revokeError)}`);
+          }
+        } else {
+          setVoucherMessage(`Voucher cancelled for this submit · ${formatError(error)}`);
+        }
+      }
+
+      setSubmitMessage("Voucher cannot pay this transaction. Checking wallet balance.");
+      const fallbackWalletBalance = await getWalletBalance().catch(() => null);
+      if (fallbackWalletBalance === null || fallbackWalletBalance > 0n) {
+        await submitWithWalletBalance(fallbackWalletBalance);
+        return;
+      }
+
+      throw new Error(
+        `Voucher cannot pay this transaction, and wallet ${shortAddress(
+          submitAccountId,
+        )} has no spendable VARA. Top up VARA to continue, or come back in ${formatNextVoucherWait()} for the next daily voucher.`,
+      );
     } catch (error) {
       setSubmitStatus("error");
       setSubmitMessage(
@@ -572,12 +802,12 @@ function App() {
           : `On-chain submit failed: ${formatError(error)}`,
       );
     }
-  }, [account, programId, refreshChainState, runSummary, sailsClient, submitDisabledReason, voucherBackendUrl]);
+  }, [account, api, programId, refreshChainState, refreshVoucherState, runSummary, sailsClient, submitDisabledReason, voucherBackendUrl]);
 
   const startRunWithButtonSpring = useCallback(() => {
     springJumpButton();
 
-    if (runSummary && submitStatus !== "success") {
+    if (runSummary && submittedRunId !== runSummary.runId) {
       if (submitStatus === "pending") {
         setSubmitMessage("Confirm the result transaction in your wallet extension.");
         return;
@@ -590,16 +820,16 @@ function App() {
     }
 
     resetRun();
-  }, [resetRun, runSummary, springJumpButton, submitRunOnChain, submitStatus]);
+  }, [resetRun, runSummary, springJumpButton, submitRunOnChain, submittedRunId, submitStatus]);
 
   useEffect(() => {
     if (!runSummary) return;
     if (autoSubmittedRunIdRef.current === runSummary.runId) return;
-    if (submitDisabledReason || submitStatus === "pending" || submitStatus === "success") return;
+    if (submitDisabledReason || submitStatus === "pending" || submittedRunId === runSummary.runId) return;
 
     autoSubmittedRunIdRef.current = runSummary.runId;
     void submitRunOnChain();
-  }, [runSummary, submitDisabledReason, submitRunOnChain, submitStatus]);
+  }, [runSummary, submitDisabledReason, submitRunOnChain, submittedRunId, submitStatus]);
 
   const endRun = useCallback(() => {
     if (statusRef.current === "ended") return;
@@ -1455,6 +1685,15 @@ function App() {
             </>
           ) : (
             <p className="empty-state">Finish a run to prepare an on-chain result.</p>
+          )}
+        </section>
+
+        <section className="voucher-panel" aria-label="Gas voucher">
+          <h2>Gas Voucher</h2>
+          {voucherMessage ? (
+            <p className="voucher-note">{voucherMessage}</p>
+          ) : (
+            <p className="empty-state">Voucher will be requested automatically after a run.</p>
           )}
         </section>
 

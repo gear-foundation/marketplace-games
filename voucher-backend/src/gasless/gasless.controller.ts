@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { GaslessService } from './gasless.service';
 import { RequestVoucherDto } from './dto/request-voucher.dto';
+import { RevokeVoucherDto } from './dto/revoke-voucher.dto';
 
 // POST /voucher — 6 per IP per hour.
 // Players may request the same daily voucher for multiple game programs. The
@@ -55,6 +56,12 @@ export class GaslessController {
   @Throttle(VOUCHER_THROTTLE)
   requestVoucher(@Body() body: RequestVoucherDto, @Ip() ip: string) {
     return this.service.requestVoucher(body, ip);
+  }
+
+  @Post('voucher/revoke')
+  @Throttle(VOUCHER_THROTTLE)
+  revokeVoucher(@Body() body: RevokeVoucherDto) {
+    return this.service.revokeVoucher(body);
   }
 
   @Get('voucher/:account')

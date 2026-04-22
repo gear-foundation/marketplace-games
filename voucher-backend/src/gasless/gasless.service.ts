@@ -68,6 +68,13 @@ export class GaslessService {
     return d;
   }
 
+  private async getLatestVoucherRecord(account: string): Promise<Voucher | null> {
+    return this.voucherRepo.findOne({
+      where: { account },
+      order: { lastRenewedAt: 'DESC', createdAt: 'DESC' },
+    });
+  }
+
   /**
    * Atomically reserve VARA from the per-IP daily ceiling.
    *
@@ -150,13 +157,19 @@ export class GaslessService {
 
     const voucher = await this.voucherService.getVoucher(address);
     if (!voucher) {
+      const latestVoucher = await this.getLatestVoucherRecord(address);
+      const fundedToday = latestVoucher
+        ? latestVoucher.lastRenewedAt >= this.getTodayMidnight()
+        : false;
+
       return {
         voucherId: null,
         programs: [],
         validUpTo: null,
         varaBalance: '0',
         balanceKnown: true,
-        fundedToday: false,
+        fundedToday: fundedToday || false,
+        revokedToday: Boolean(latestVoucher?.revoked && fundedToday),
       };
     }
 
@@ -180,7 +193,33 @@ export class GaslessService {
       varaBalance: balance === null ? null : balance.toString(10),
       balanceKnown,
       fundedToday: voucher.lastRenewedAt >= this.getTodayMidnight(),
+      revokedToday: false,
     };
+  }
+
+  async revokeVoucher(body: { account: string; voucherId: string }) {
+    let address: HexString;
+    try {
+      address = decodeAddress(body.account);
+    } catch {
+      throw new BadRequestException('Invalid account address');
+    }
+
+    if (!/^0x[0-9a-fA-F]{64}$/.test(body.voucherId)) {
+      throw new BadRequestException('Invalid voucher id');
+    }
+
+    const voucher = await this.voucherService.getVoucher(address);
+    if (!voucher) {
+      return { revoked: false, voucherId: null, reason: 'No active voucher' };
+    }
+
+    if (voucher.voucherId.toLowerCase() !== body.voucherId.toLowerCase()) {
+      throw new BadRequestException('Voucher id does not match active voucher');
+    }
+
+    await this.voucherService.revoke(voucher);
+    return { revoked: true, voucherId: voucher.voucherId };
   }
 
   async requestVoucher(body: { account: string; program: string }, ip: string) {
@@ -225,9 +264,20 @@ export class GaslessService {
       // Existing-voucher lookup inside the locked section so two concurrent
       // requests can't both see existing === null and both issue.
       const existing = await this.voucherService.getVoucher(address);
+      const latestVoucher = existing ? null : await this.getLatestVoucherRecord(address);
 
       if (program.oneTime && existing?.programs.includes(programAddress)) {
         throw new BadRequestException('One-time voucher already issued');
+      }
+
+      if (
+        !existing &&
+        latestVoucher?.revoked &&
+        latestVoucher.lastRenewedAt >= this.getTodayMidnight()
+      ) {
+        throw new BadRequestException(
+          'Daily voucher already used for this UTC day. Try again tomorrow.',
+        );
       }
 
       // No existing voucher row — brand new player. Fund to cap, enforce IP ceiling.
