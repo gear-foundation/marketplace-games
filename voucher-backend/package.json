@@ -8,6 +8,8 @@
     "start": "node dist/src/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/src/main.js",
+    "migration:run": "typeorm -d dist/src/data-source.js migration:run",
+    "migration:revert": "typeorm -d dist/src/data-source.js migration:revert",
     "seed": "ts-node src/seed.ts",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -22,7 +22,7 @@ const PROGRAMS = [
   {
     name: 'SkyboundJump',
     address:
-      '0x5932f41b87423668d9444a29876b69777432729c810742a82b01cdd9250c9cb3',
+      '0x06463100e93e0e6641c32e5777c404167dc4a12ee083fb4841d0934310bc4e4f',
     weight: 1,
     duration: 86400, // 24h
     oneTime: false,
@@ -38,13 +38,14 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     entities: [GaslessProgram, Voucher],
-    synchronize: true,
+    synchronize: false,
   });
 
   await ds.initialize();
   const repo = ds.getRepository(GaslessProgram);
 
   const dailyCap = Number(process.env.DAILY_VARA_CAP || '100');
+  const configuredAddresses = PROGRAMS.map((p) => p.address.toLowerCase());
 
   for (const p of PROGRAMS) {
     // varaToIssue is inactive in the arcade policy (kept for schema compat).
@@ -75,6 +76,13 @@ async function seed() {
     });
     console.log(`[seed] ${p.name} ${p.address.slice(0, 12)}... (cap=${dailyCap} VARA)`);
   }
+
+  await repo
+    .createQueryBuilder()
+    .update(GaslessProgram)
+    .set({ status: GaslessProgramStatus.Disabled })
+    .where('LOWER(address) NOT IN (:...configuredAddresses)', { configuredAddresses })
+    .execute();
 
   console.log('Seed complete.');
   await ds.destroy();

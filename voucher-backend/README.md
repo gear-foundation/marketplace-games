@@ -109,7 +109,7 @@ x-api-key: <INFO_API_KEY>
 
 | Var | Description |
 | --- | --- |
-| `NODE_URL` | Vara RPC endpoint, for example `wss://testnet.vara.network` |
+| `NODE_URL` | Vara RPC endpoint, for example `wss://rpc.vara.network` |
 | `VOUCHER_ACCOUNT` | Seed phrase, hex seed, or dev URI for the voucher issuer account |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Postgres connection |
 | `PORT` | Server port, default `3001` |
@@ -125,7 +125,7 @@ x-api-key: <INFO_API_KEY>
 Current whitelisted game:
 
 - `SkyboundJump`:
-  `0x5932f41b87423668d9444a29876b69777432729c810742a82b01cdd9250c9cb3`
+  `0x06463100e93e0e6641c32e5777c404167dc4a12ee083fb4841d0934310bc4e4f`
 
 To add another game contract, add it to `PROGRAMS` in `src/seed.ts` and run:
 

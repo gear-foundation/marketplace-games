@@ -136,7 +136,7 @@ const BOOST_SPRING_FPS = 14;
 const BOOST_SPRING_FRAMES = 5;
 const BOOST_SPRING_FIRST_ACTIVE_FRAME = 2;
 const APP_NAME = "Skybound Jump";
-const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://testnet.vara.network";
+const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
 const VARA_PROGRAM_ID = import.meta.env.VITE_PROGRAM_ID || "";
 const VOUCHER_BACKEND_URL = (import.meta.env.VITE_VOUCHER_BACKEND_URL || "").replace(/\/+$/, "");
 
