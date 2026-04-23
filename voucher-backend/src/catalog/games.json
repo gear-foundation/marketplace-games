@@ -1,0 +1,34 @@
+[
+  {
+    "slug": "skybound-jump",
+    "title": "Skybound Jump",
+    "description": "A jungle platformer where you jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
+    "frontendUrl": "${SKYBOUND_JUMP_URL:https://arcade-vara.up.railway.app}",
+    "contractAddress": "0x06463100e93e0e6641c32e5777c404167dc4a12ee083fb4841d0934310bc4e4f",
+    "imageUrl": "${SKYBOUND_JUMP_IMAGE_URL:/monkey.png}",
+    "tags": ["Leaderboard", "Gas voucher", "Mainnet"],
+    "status": "live",
+    "sortOrder": 10,
+    "gasless": {
+      "enabled": true,
+      "name": "SkyboundJump",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
+  },
+  {
+    "slug": "next-game",
+    "title": "Next Game",
+    "description": "The next arcade contract will appear here with its own leaderboard, assets, and voucher access.",
+    "frontendUrl": null,
+    "contractAddress": null,
+    "imageUrl": "${NEXT_GAME_IMAGE_URL:/banana.png}",
+    "tags": ["Shared wallet", "New contract", "Vara Arcade"],
+    "status": "soon",
+    "sortOrder": 20,
+    "gasless": {
+      "enabled": false
+    }
+  }
+]

@@ -1,0 +1,31 @@
+{
+  "name": "vara-arcade-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@gear-js/api": "^0.44.2",
+    "@gear-js/react-hooks": "^0.19.1",
+    "@gear-js/ui": "^0.7.0",
+    "@gear-js/vara-ui": "^0.3.1",
+    "@gear-js/wallet-connect": "^0.4.3",
+    "@polkadot/react-identicon": "^3.12.2",
+    "@polkadot/util": "^14.0.3",
+    "@polkadot/wasm-crypto": "^7.5.4",
+    "@tanstack/react-query": "^5.99.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6"
+  }
+}
