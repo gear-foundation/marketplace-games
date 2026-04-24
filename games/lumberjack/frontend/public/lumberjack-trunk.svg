@@ -1,0 +1,61 @@
+<svg width="320" height="1280" viewBox="0 0 320 1280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="barkBase" x1="40" y1="0" x2="280" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5f2f10"/>
+      <stop offset="0.14" stop-color="#7b3f15"/>
+      <stop offset="0.48" stop-color="#c17320"/>
+      <stop offset="0.68" stop-color="#a65a19"/>
+      <stop offset="1" stop-color="#4b230c"/>
+    </linearGradient>
+    <linearGradient id="warmStripe" x1="92" y1="0" x2="188" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a65a19" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#e3962d" stop-opacity="0.56"/>
+      <stop offset="1" stop-color="#8c4614" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="darkStripe" x1="0" y1="0" x2="70" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2b1206" stop-opacity="0.46"/>
+      <stop offset="1" stop-color="#2b1206" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soften" x="-10%" y="-3%" width="120%" height="106%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="0.35"/>
+    </filter>
+  </defs>
+
+  <path d="M36 0H284V1280H36V0Z" fill="url(#barkBase)"/>
+  <path d="M36 0H75V1280H36V0Z" fill="url(#darkStripe)"/>
+  <path d="M284 0H238V1280H284V0Z" fill="#371706" opacity="0.34"/>
+  <path d="M96 0H211V1280H96V0Z" fill="url(#warmStripe)" opacity="0.9"/>
+
+  <g filter="url(#soften)" stroke-linecap="round">
+    <path d="M86 -20C74 74 97 132 82 214C65 306 91 383 79 468C66 560 80 647 70 724C58 819 84 902 75 1002C68 1082 76 1182 59 1300" stroke="#351506" stroke-width="10" opacity="0.38"/>
+    <path d="M244 -18C258 82 237 151 253 247C268 337 248 423 260 514C273 613 247 704 262 798C276 889 251 981 263 1068C273 1154 253 1219 267 1298" stroke="#2b1206" stroke-width="12" opacity="0.34"/>
+    <path d="M128 -12C116 70 139 153 126 235C112 323 134 401 120 492C107 577 129 661 117 750C106 835 130 925 118 1010C106 1100 129 1191 112 1295" stroke="#6d3510" stroke-width="6" opacity="0.62"/>
+    <path d="M174 -18C190 80 168 153 181 250C193 341 173 431 188 518C203 606 179 685 192 782C204 870 181 957 196 1042C209 1126 184 1206 201 1299" stroke="#7a3b11" stroke-width="7" opacity="0.55"/>
+    <path d="M214 -28C202 79 226 176 212 273C198 366 223 464 210 553C196 655 220 753 205 844C191 934 215 1021 199 1111C185 1187 205 1237 194 1305" stroke="#4b210a" stroke-width="8" opacity="0.45"/>
+  </g>
+
+  <g opacity="0.62">
+    <path d="M103 142L137 92L151 184L122 248L97 205L116 171L103 142Z" fill="#8f4915"/>
+    <path d="M198 182L229 132L241 224L209 294L187 238L205 212L198 182Z" fill="#6e3310"/>
+    <path d="M86 396L116 330L133 422L105 492L78 445L96 420L86 396Z" fill="#9f5519"/>
+    <path d="M182 448L217 374L229 494L193 562L169 508L191 478L182 448Z" fill="#7a3810"/>
+    <path d="M117 670L151 596L164 710L128 782L101 726L124 697L117 670Z" fill="#b7651f"/>
+    <path d="M205 760L239 692L251 794L217 864L191 814L213 786L205 760Z" fill="#71330e"/>
+    <path d="M80 900L112 834L126 938L93 1002L67 955L88 928L80 900Z" fill="#8b4614"/>
+    <path d="M154 1044L188 974L202 1088L166 1160L139 1102L162 1074L154 1044Z" fill="#a75b1b"/>
+    <path d="M218 1132L249 1078L258 1162L229 1225L203 1178L224 1155L218 1132Z" fill="#7b3a12"/>
+  </g>
+
+  <g stroke-linecap="round" opacity="0.45">
+    <path d="M102 4C99 91 110 162 104 242C97 327 112 391 106 480C100 570 114 632 108 722C102 805 113 877 107 966C102 1056 113 1152 101 1274" stroke="#f2a13a" stroke-width="3"/>
+    <path d="M155 18C148 112 162 193 154 285C146 380 163 474 153 562C145 652 160 744 151 832C142 930 162 1019 149 1112C140 1182 153 1234 145 1274" stroke="#e79830" stroke-width="4"/>
+    <path d="M185 6C197 84 178 159 190 246C201 327 184 414 197 498C209 585 189 675 200 760C211 849 190 941 202 1028C214 1117 194 1199 205 1270" stroke="#5a260b" stroke-width="4"/>
+    <path d="M231 14C218 93 239 169 226 252C214 336 238 426 225 510C212 600 237 686 224 779C211 870 234 957 220 1048C208 1134 229 1201 215 1268" stroke="#321406" stroke-width="5"/>
+  </g>
+
+  <g>
+    <ellipse cx="82" cy="548" rx="30" ry="48" fill="#5a260b" transform="rotate(7 82 548)"/>
+    <ellipse cx="84" cy="548" rx="18" ry="31" fill="#1f0d05" transform="rotate(7 84 548)"/>
+    <path d="M65 518C86 502 112 518 112 548" stroke="#ce7a24" stroke-width="6" stroke-linecap="round" opacity="0.62"/>
+  </g>
+</svg>

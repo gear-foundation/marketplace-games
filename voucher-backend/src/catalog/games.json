@@ -18,17 +18,21 @@
     }
   },
   {
-    "slug": "next-game",
-    "title": "Next Game",
-    "description": "The next arcade contract will appear here with its own leaderboard, assets, and voucher access.",
-    "frontendUrl": null,
-    "contractAddress": null,
-    "imageUrl": "${NEXT_GAME_IMAGE_URL:/banana.png}",
-    "tags": ["Shared wallet", "New contract", "Vara Arcade"],
-    "status": "soon",
+    "slug": "lumberjack",
+    "title": "Lumberjack",
+    "description": "A fast tap arcade game where you chop logs, switch sides, dodge branches, and submit your best run on-chain.",
+    "frontendUrl": "${LUMBERJACK_URL:https://lumberjack.up.railway.app}",
+    "contractAddress": "0xb73d1c31cd10e84420c2c076dffcbaa109e325f91edfe29219595e67dc4990b3",
+    "imageUrl": "${LUMBERJACK_IMAGE_URL:/lumberjack.png}",
+    "tags": ["Tap arcade", "Best run", "Vara Arcade"],
+    "status": "live",
     "sortOrder": 20,
     "gasless": {
-      "enabled": false
+      "enabled": true,
+      "name": "Lumberjack",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
     }
   }
 ]

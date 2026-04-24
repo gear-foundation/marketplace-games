@@ -10,6 +10,33 @@ import "@gear-js/vara-ui/dist/style.css";
 import "@gear-js/wallet-connect/dist/style.css";
 import "./styles.css";
 import contractIdl from "./idl/contract.idl?raw";
+import {
+  createSailsClient,
+  getConfiguredProgramId,
+  mapChainLeaderboard,
+  type ChainLeaderboardEntry,
+  type ChainRunRecord,
+  type LeaderboardEntry,
+} from "./shared/chain";
+import {
+  formatError,
+  formatNextVoucherWait,
+  formatPlanckVara,
+  formatVaraAmount,
+  isInsufficientBalanceError,
+  isSignatureRejection,
+  shortAddress,
+  toDisplayNumber,
+  unwrapOption,
+} from "./shared/format";
+import {
+  describeVoucher,
+  ensureVoucher,
+  getConfiguredBackendUrl,
+  getVoucherState,
+  revokeVoucher,
+  type VoucherResult,
+} from "./shared/voucher";
 
 type Platform = {
   x: number;
@@ -57,53 +84,6 @@ type RunSummary = {
   durationMs: number;
 };
 
-type LeaderboardEntry = {
-  name: string;
-  points: number;
-  height: number;
-  player?: string;
-};
-
-type ChainLeaderboardEntry = {
-  player?: string;
-  points?: unknown;
-  best_height?: unknown;
-  bestHeight?: unknown;
-};
-
-type ChainRunRecord = {
-  height?: unknown;
-  points_awarded?: unknown;
-  pointsAwarded?: unknown;
-};
-
-type VoucherState = {
-  voucherId: string | null;
-  programs?: string[];
-  varaBalance?: string | null;
-  balanceKnown?: boolean;
-  validUpTo?: string | null;
-  fundedToday?: boolean;
-  revokedToday?: boolean;
-};
-
-type VoucherCreateResponse = {
-  voucherId?: unknown;
-};
-
-type VoucherRevokeResponse = {
-  revoked?: boolean;
-  voucherId?: unknown;
-  reason?: unknown;
-};
-
-type VoucherResult = {
-  voucherId: `0x${string}`;
-  balanceText: string;
-  balancePlanck: bigint | null;
-  source: "existing" | "issued";
-};
-
 const WORLD_WIDTH = 420;
 const WORLD_HEIGHT = 700;
 const GRAVITY = 1850;
@@ -115,7 +95,6 @@ const PLATFORM_GAP_MAX = 118;
 const VISIBLE_LEADERBOARD_LIMIT = 5;
 const CURRENT_PLAYER_NAME = "YOU";
 const BANANA_SCORE = 250;
-const PLANCK_PER_VARA = 1_000_000_000_000n;
 const MONKEY_SPRITE_WIDTH = 86;
 const MONKEY_SPRITE_HEIGHT = 112;
 const BANANA_SPRITE_SIZE = 42;
@@ -152,226 +131,6 @@ const queryClient = new QueryClient();
 
 function makeRunId() {
   return `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function getConfiguredProgramId(programId: string): `0x${string}` | "" {
-  return /^0x[0-9a-fA-F]{64}$/.test(programId) ? (programId as `0x${string}`) : "";
-}
-
-function getConfiguredBackendUrl(url: string) {
-  return /^https?:\/\/.+/.test(url) ? url : "";
-}
-
-function toDisplayNumber(value: unknown) {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "string") return Number(value.replaceAll(",", "")) || 0;
-  if (value && typeof value === "object" && "toString" in value) {
-    return Number((value as { toString: () => string }).toString().replaceAll(",", "")) || 0;
-  }
-  return 0;
-}
-
-function parsePlanck(value: string | null | undefined) {
-  try {
-    return value ? BigInt(value) : null;
-  } catch {
-    return null;
-  }
-}
-
-function formatVaraAmount(planck: bigint) {
-  const whole = planck / PLANCK_PER_VARA;
-  const fractional = (planck % PLANCK_PER_VARA).toString().padStart(12, "0").slice(0, 2);
-  return `${whole.toString()}.${fractional}`;
-}
-
-function formatPlanckVara(value: string | null | undefined) {
-  const planck = parsePlanck(value);
-  if (planck === null) {
-    return "balance unknown";
-  }
-
-  return `${formatVaraAmount(planck)} VARA left`;
-}
-
-function formatNextVoucherWait() {
-  const now = new Date();
-  const nextUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
-  const msLeft = Math.max(0, nextUtcMidnight - now.getTime());
-  const hoursLeft = Math.ceil(msLeft / 3_600_000);
-
-  if (hoursLeft <= 1) return "less than 1 hour";
-  return `about ${hoursLeft} hours`;
-}
-
-function unwrapOption<T>(value: unknown): T | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === "object") {
-    const option = value as Record<string, unknown>;
-    if ("None" in option || "none" in option) return null;
-    if ("Some" in option) return option.Some as T;
-    if ("some" in option) return option.some as T;
-  }
-  return value as T;
-}
-
-function shortAddress(address: string) {
-  if (!address) return "UNKNOWN";
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function formatError(error: unknown) {
-  if (error instanceof Error) return error.message;
-
-  if (error && typeof error === "object") {
-    const value = error as Record<string, unknown>;
-    const parts = [
-      value.message,
-      value.name,
-      value.section && value.method ? `${String(value.section)}.${String(value.method)}` : null,
-      value.docs,
-      value.type,
-    ]
-      .flatMap((part) => (Array.isArray(part) ? part : [part]))
-      .filter((part): part is string => typeof part === "string" && part.trim().length > 0);
-
-    if (parts.length > 0) {
-      return parts.join(" · ");
-    }
-
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return Object.prototype.toString.call(error);
-    }
-  }
-
-  return String(error);
-}
-
-function isSignatureRejection(error: unknown) {
-  const message = formatError(error).toLowerCase();
-  return (
-    message.includes("reject") ||
-    message.includes("denied") ||
-    message.includes("user cancelled") ||
-    message.includes("cancelled by user") ||
-    message.includes("user rejected") ||
-    message.includes("closed")
-  );
-}
-
-function isInsufficientBalanceError(error: unknown) {
-  const message = formatError(error).toLowerCase();
-  return (
-    message.includes("1010") ||
-    message.includes("inability to pay") ||
-    message.includes("balance too low") ||
-    message.includes("insufficient")
-  );
-}
-
-function mapChainLeaderboard(entries: ChainLeaderboardEntry[], currentPlayer?: string): LeaderboardEntry[] {
-  return entries.map((entry) => {
-    const player = String(entry.player || "");
-    const isCurrentPlayer = currentPlayer !== undefined && player.toLowerCase() === currentPlayer.toLowerCase();
-
-    return {
-      name: isCurrentPlayer ? CURRENT_PLAYER_NAME : shortAddress(player),
-      points: toDisplayNumber(entry.points),
-      height: toDisplayNumber(entry.best_height ?? entry.bestHeight),
-      player,
-    };
-  });
-}
-
-async function createSailsClient(api: Parameters<Sails["setApi"]>[0], programId: `0x${string}`) {
-  const [{ Sails }, { SailsIdlParser }] = await Promise.all([import("sails-js"), import("sails-js-parser")]);
-  const parser = await SailsIdlParser.new();
-  return new Sails(parser).setApi(api).setProgramId(programId).parseIdl(contractIdl);
-}
-
-async function readVoucherJson<T>(response: Response): Promise<T> {
-  const text = await response.text();
-  const json = text ? JSON.parse(text) : {};
-
-  if (!response.ok) {
-    const message =
-      typeof json?.message === "string"
-        ? json.message
-        : Array.isArray(json?.message)
-          ? json.message.join(", ")
-          : `Voucher backend returned ${response.status}`;
-    throw new Error(message);
-  }
-
-  return json as T;
-}
-
-async function getVoucherState(backendUrl: string, account: string) {
-  const response = await fetch(`${backendUrl}/voucher/${encodeURIComponent(account)}`);
-  return readVoucherJson<VoucherState>(response);
-}
-
-async function revokeVoucher(backendUrl: string, account: string, voucherId: `0x${string}`) {
-  const response = await fetch(`${backendUrl}/voucher/revoke`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account, voucherId }),
-  });
-  return readVoucherJson<VoucherRevokeResponse>(response);
-}
-
-function describeVoucher(state: VoucherState, programId: `0x${string}`) {
-  if (!state.voucherId || !/^0x[0-9a-fA-F]{64}$/.test(state.voucherId)) {
-    return "";
-  }
-
-  const hasGameAccess = state.programs?.some((program) => program.toLowerCase() === programId.toLowerCase());
-  const accessText = hasGameAccess ? "Voucher ready" : "Voucher found";
-  const balanceText = state.balanceKnown === false ? "balance unknown" : formatPlanckVara(state.varaBalance);
-  return `${accessText} · ${balanceText} · ${shortAddress(state.voucherId)}`;
-}
-
-async function ensureVoucher(backendUrl: string, account: string, programId: `0x${string}`): Promise<VoucherResult> {
-  const state = await getVoucherState(backendUrl, account);
-  const normalizedProgram = programId.toLowerCase();
-
-  if (
-    state.voucherId &&
-    /^0x[0-9a-fA-F]{64}$/.test(state.voucherId) &&
-    state.programs?.some((program) => program.toLowerCase() === normalizedProgram)
-  ) {
-    return {
-      voucherId: state.voucherId as `0x${string}`,
-      balanceText: state.balanceKnown === false ? "balance unknown" : formatPlanckVara(state.varaBalance),
-      balancePlanck: state.balanceKnown === false ? null : parsePlanck(state.varaBalance),
-      source: "existing",
-    };
-  }
-
-  const createResponse = await fetch(`${backendUrl}/voucher`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account, program: programId }),
-  });
-  const created = await readVoucherJson<VoucherCreateResponse>(createResponse);
-  const voucherId = String(created.voucherId || "");
-
-  if (!/^0x[0-9a-fA-F]{64}$/.test(voucherId)) {
-    throw new Error("Voucher backend returned an invalid voucher id.");
-  }
-
-  const refreshedState = await getVoucherState(backendUrl, account).catch(() => null);
-
-  return {
-    voucherId: voucherId as `0x${string}`,
-    balanceText:
-      refreshedState?.balanceKnown === false ? "balance unknown" : formatPlanckVara(refreshedState?.varaBalance),
-    balancePlanck: refreshedState?.balanceKnown === false ? null : parsePlanck(refreshedState?.varaBalance),
-    source: "issued",
-  };
 }
 
 function randomPlatformKind(index: number): Platform["kind"] {
@@ -464,7 +223,7 @@ function updateTiger(tiger: Tiger, dt: number) {
   }
 }
 
-function App() {
+function SkyboundJumpApp() {
   const { account, isAccountReady, isAnyWallet } = useAccount();
   const { api, isApiReady } = useApi();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -540,7 +299,7 @@ function App() {
     setSailsClient(null);
     if (!isApiReady || !programId) return undefined;
 
-    createSailsClient(api, programId)
+    createSailsClient(api, programId, contractIdl)
       .then((client) => {
         if (isCancelled) return;
         setSailsClient(client);
@@ -572,7 +331,7 @@ function App() {
       }
 
       const topEntries = (await leaderboardQuery.call()) as ChainLeaderboardEntry[];
-      const mappedTop = mapChainLeaderboard(topEntries, account?.decodedAddress);
+      const mappedTop = mapChainLeaderboard(topEntries, CURRENT_PLAYER_NAME, account?.decodedAddress);
 
       leaderboardTopRef.current = mappedTop;
       setLeaderboardTop(mappedTop);
@@ -1755,7 +1514,7 @@ createRoot(document.getElementById("root")!).render(
       <ApiProvider initialArgs={{ endpoint: VARA_NODE_ADDRESS }}>
         <AccountProvider appName={APP_NAME}>
           <AlertProvider template={Alert} containerClassName={alertStyles.root}>
-            <App />
+            <SkyboundJumpApp />
           </AlertProvider>
         </AccountProvider>
       </ApiProvider>

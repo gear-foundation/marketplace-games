@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AccountProvider, AlertProvider, ApiProvider } from "@gear-js/react-hooks";
-import { Alert, alertStyles } from "@gear-js/ui";
-import { Wallet } from "@gear-js/wallet-connect";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import "@gear-js/ui/dist/index.css";
-import "@gear-js/vara-ui/dist/style.css";
-import "@gear-js/wallet-connect/dist/style.css";
 import "./styles.css";
 
 type GameStatus = "live" | "soon";
@@ -34,9 +28,9 @@ type ApiGame = {
   status?: unknown;
 };
 
-const APP_NAME = "Vara Arcade";
-const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
+const APP_NAME = "Games on Vara";
 const SKYBOUND_JUMP_URL = import.meta.env.VITE_SKYBOUND_JUMP_URL || "https://arcade-vara.up.railway.app";
+const LUMBERJACK_URL = import.meta.env.VITE_LUMBERJACK_URL || "https://lumberjack.up.railway.app";
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
 const fallbackGames: GameCard[] = [
@@ -51,13 +45,14 @@ const fallbackGames: GameCard[] = [
     tags: ["Leaderboard", "Gas voucher", "Mainnet"],
   },
   {
-    id: "next-game",
-    title: "Next Game",
-    eyebrow: "Coming soon",
-    description: "The next arcade contract will appear here with its own leaderboard, assets, and voucher access.",
-    status: "soon",
-    image: "/banana.png",
-    tags: ["Shared wallet", "New contract", "Vara Arcade"],
+    id: "lumberjack",
+    title: "Lumberjack",
+    eyebrow: "Live in Arcade",
+    description: "A fast tap arcade game where you chop logs, switch sides, dodge branches, and submit your best run on-chain.",
+    url: LUMBERJACK_URL,
+    status: "live",
+    image: "/games-on-vara-logo.svg",
+    tags: ["Tap arcade", "Best run", "Vara Arcade"],
   },
 ];
 
@@ -130,12 +125,12 @@ function PlatformApp() {
     <main className="platform-shell">
       <header className="platform-header">
         <div className="brand-copy">
-          <p>Vara Arcade</p>
-          <h1>Play on-chain games</h1>
+          <h1 className="brand-logo">
+            <img src="/games-on-vara-logo.svg" alt={APP_NAME} />
+          </h1>
+          <span>Discover playful apps, compete on-chain, and get a daily sponsored gas voucher for supported games.</span>
         </div>
-        <div className="wallet-dock" aria-label="Wallet connection">
-          <Wallet theme="vara" displayBalance={false} />
-        </div>
+        <strong className="network-badge">Vara Mainnet</strong>
       </header>
 
       <section className="game-grid" aria-label="Available games">
@@ -174,13 +169,7 @@ function PlatformApp() {
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ApiProvider initialArgs={{ endpoint: VARA_NODE_ADDRESS }}>
-        <AccountProvider appName={APP_NAME}>
-          <AlertProvider template={Alert} containerClassName={alertStyles.root}>
-            <PlatformApp />
-          </AlertProvider>
-        </AccountProvider>
-      </ApiProvider>
+      <PlatformApp />
     </QueryClientProvider>
   </React.StrictMode>,
 );

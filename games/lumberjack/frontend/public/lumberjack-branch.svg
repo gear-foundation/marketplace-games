@@ -1,0 +1,95 @@
+<svg width="320" height="130" viewBox="0 0 320 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="branchBark" x1="25" y1="66" x2="256" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5a260b"/>
+      <stop offset="0.2" stop-color="#8b430e"/>
+      <stop offset="0.56" stop-color="#a75a17"/>
+      <stop offset="1" stop-color="#6d300b"/>
+    </linearGradient>
+    <linearGradient id="leafTop" x1="236" y1="12" x2="293" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8cc80f"/>
+      <stop offset="1" stop-color="#3f7808"/>
+    </linearGradient>
+    <linearGradient id="leafBottom" x1="231" y1="62" x2="311" y2="112" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9acb13"/>
+      <stop offset="1" stop-color="#4c8508"/>
+    </linearGradient>
+  </defs>
+
+  <path
+    d="M22 68C22 37 35 20 54 23C67 25 65 34 83 40C121 52 177 55 218 48C239 45 246 47 256 59C246 76 227 82 188 82C149 82 95 80 62 91C39 99 22 91 22 68Z"
+    fill="#120903"
+  />
+  <path
+    d="M39 67C39 43 47 31 60 32C70 34 69 41 84 46C122 58 177 61 217 55C234 52 240 54 248 62C239 72 221 76 187 76C148 76 94 75 60 85C47 89 39 82 39 67Z"
+    fill="url(#branchBark)"
+  />
+  <path
+    d="M39 63C83 70 129 68 174 70C205 72 229 66 248 62"
+    stroke="#3a1605"
+    stroke-width="7"
+    stroke-linecap="round"
+    opacity="0.42"
+  />
+  <path
+    d="M58 45C98 58 153 60 209 56"
+    stroke="#d68423"
+    stroke-width="6"
+    stroke-linecap="round"
+    opacity="0.5"
+  />
+  <path
+    d="M72 75C112 68 151 74 190 72"
+    stroke="#5e2508"
+    stroke-width="5"
+    stroke-linecap="round"
+    opacity="0.52"
+  />
+  <ellipse cx="157" cy="55" rx="14" ry="10" fill="#4f1f08" transform="rotate(7 157 55)"/>
+  <ellipse cx="157" cy="55" rx="7" ry="4" fill="#1e0b03" transform="rotate(7 157 55)"/>
+
+  <path
+    d="M231 60C228 27 253 7 296 9C302 51 282 75 239 77C235 71 232 66 231 60Z"
+    fill="#132302"
+  />
+  <path
+    d="M241 57C240 31 259 18 287 18C289 47 274 66 243 68C242 65 241 61 241 57Z"
+    fill="url(#leafTop)"
+  />
+  <path
+    d="M238 70C262 49 295 56 313 86C287 113 252 112 228 83C230 78 234 73 238 70Z"
+    fill="#132302"
+  />
+  <path
+    d="M244 75C264 60 290 63 304 86C282 105 256 103 238 82C239 80 242 77 244 75Z"
+    fill="url(#leafBottom)"
+  />
+  <path
+    d="M246 61C262 47 277 35 288 20"
+    stroke="#416b08"
+    stroke-width="5"
+    stroke-linecap="round"
+    opacity="0.62"
+  />
+  <path
+    d="M244 77C266 80 285 83 303 88"
+    stroke="#416b08"
+    stroke-width="5"
+    stroke-linecap="round"
+    opacity="0.62"
+  />
+  <path
+    d="M255 39C252 47 253 54 249 61"
+    stroke="#6fa80c"
+    stroke-width="3"
+    stroke-linecap="round"
+    opacity="0.55"
+  />
+  <path
+    d="M276 72C268 75 259 79 249 80"
+    stroke="#80b70e"
+    stroke-width="3"
+    stroke-linecap="round"
+    opacity="0.55"
+  />
+</svg>
