@@ -29,9 +29,12 @@ type ApiGame = {
 };
 
 const APP_NAME = "Games on Vara";
-const SKYBOUND_JUMP_URL = import.meta.env.VITE_SKYBOUND_JUMP_URL || "https://arcade-vara.up.railway.app";
-const LUMBERJACK_URL = import.meta.env.VITE_LUMBERJACK_URL || "https://lumberjack.up.railway.app";
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
+
+const FALLBACK_GAME_URLS: Record<string, string> = {
+  "skybound-jump": "https://arcade-vara.up.railway.app",
+  lumberjack: "https://lumberjack.up.railway.app",
+};
 
 function getPlatformGameImage(slug: string, fallbackImage?: string) {
   switch (slug) {
@@ -50,7 +53,7 @@ const fallbackGames: GameCard[] = [
     title: "Skybound Jump",
     eyebrow: "Live on Vara",
     description: "A jungle platformer where you jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
-    url: SKYBOUND_JUMP_URL,
+    url: FALLBACK_GAME_URLS["skybound-jump"],
     status: "live",
     image: "/monkey_run_9x16.webp",
     tags: [],
@@ -60,7 +63,7 @@ const fallbackGames: GameCard[] = [
     title: "Lumberjack",
     eyebrow: "Live in Arcade",
     description: "A fast tap arcade game where you chop logs, switch sides, dodge branches, and submit your best run on-chain.",
-    url: LUMBERJACK_URL,
+    url: FALLBACK_GAME_URLS.lumberjack,
     status: "live",
     image: "/lumberjack_9x16.webp",
     tags: ["Vara Arcade"],
