@@ -38,6 +38,11 @@ const VOUCHER_BACKEND_URL = (import.meta.env.VITE_VOUCHER_BACKEND_URL || "").rep
 const VISIBLE_LEADERBOARD_LIMIT = 5;
 const CURRENT_PLAYER_NAME = "YOU";
 
+function isFetchFailure(error: unknown) {
+  const message = formatError(error).toLowerCase();
+  return message.includes("failed to fetch") || message.includes("networkerror");
+}
+
 const initialLeaderboardTop: LeaderboardEntry[] = [
   { name: "AXE", branches: 64 },
   { name: "CHOP", branches: 52 },
@@ -83,6 +88,7 @@ function LumberjackWeb3PanelContent({
   const [chainStatusMessage, setChainStatusMessage] = useState("");
   const [sailsClient, setSailsClient] = useState<Sails | null>(null);
   const autoSubmittedRunIdRef = useRef<string | null>(null);
+  const previousAccountAddressRef = useRef<string>("");
 
   const programId = useMemo(() => getConfiguredProgramId(VARA_PROGRAM_ID), []);
   const voucherBackendUrl = useMemo(() => getConfiguredBackendUrl(VOUCHER_BACKEND_URL), []);
@@ -119,6 +125,21 @@ function LumberjackWeb3PanelContent({
   useEffect(() => {
     onWalletConnectionChange(Boolean(connectedAccountAddress));
   }, [connectedAccountAddress, onWalletConnectionChange]);
+
+  useEffect(() => {
+    const previousAddress = previousAccountAddressRef.current;
+    if (!previousAddress) {
+      previousAccountAddressRef.current = connectedAccountAddress;
+      return;
+    }
+
+    if (connectedAccountAddress && connectedAccountAddress !== previousAddress) {
+      window.location.reload();
+      return;
+    }
+
+    previousAccountAddressRef.current = connectedAccountAddress;
+  }, [connectedAccountAddress]);
 
   useEffect(() => {
     setSubmitStatus("idle");
@@ -209,7 +230,11 @@ function LumberjackWeb3PanelContent({
       const state = await getVoucherState(voucherBackendUrl, account.decodedAddress);
       setVoucherMessage(describeVoucher(state, programId));
     } catch (error) {
-      setVoucherMessage(`Voucher unavailable · ${formatError(error)}`);
+      setVoucherMessage(
+        isFetchFailure(error)
+          ? `Voucher backend is unreachable from ${window.location.origin}. Check CORS/frontend origin settings.`
+          : `Voucher unavailable · ${formatError(error)}`,
+      );
     }
   }, [account?.decodedAddress, programId, voucherBackendUrl]);
 
@@ -322,10 +347,18 @@ function LumberjackWeb3PanelContent({
             await revokeVoucher(voucherBackendUrl, submitAccountId, activeVoucher.voucherId);
             setVoucherMessage(`Voucher revoked · ${shortAddress(activeVoucher.voucherId)}`);
           } catch (revokeError) {
-            setVoucherMessage(`Voucher revoke failed · ${formatError(revokeError)}`);
+            setVoucherMessage(
+              isFetchFailure(revokeError)
+                ? `Voucher revoke request is blocked from ${window.location.origin}. Check CORS/frontend origin settings.`
+                : `Voucher revoke failed · ${formatError(revokeError)}`,
+            );
           }
         } else {
-          setVoucherMessage(`Voucher cancelled for this submit · ${formatError(error)}`);
+          setVoucherMessage(
+            isFetchFailure(error)
+              ? `Voucher request is blocked from ${window.location.origin}. Check CORS/frontend origin settings.`
+              : `Voucher cancelled for this submit · ${formatError(error)}`,
+          );
         }
       }
 

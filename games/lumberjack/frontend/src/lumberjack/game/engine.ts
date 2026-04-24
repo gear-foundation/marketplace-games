@@ -21,6 +21,7 @@ export type LumberjackRuntime = {
   branches: BranchSide[];
   chopEffect: ChopEffect | null;
   side: Side;
+  chops: number;
   logs: number;
   combo: number;
   energy: number;
@@ -79,15 +80,15 @@ const GRASS_BOTTOM_OVERDRAW = 18;
 const CHIP_COUNT = 6;
 // The player was moved lower on the stage, so the first dangerous branch row
 // is now closer to the stump. Keeping three safe rows makes collisions miss.
-const SAFE_BRANCH_ROWS = 2;
+export const SAFE_BRANCH_ROWS = 2;
 const CHOP_EFFECT_MS = 180;
 
 export function makeRunId() {
   return `lumber-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function randomBranch(logs: number, recentBranches: BranchSide[], runProgress = 0): BranchSide {
-  if (logs < 2) return "none";
+export function randomBranch(chops: number, recentBranches: BranchSide[], runProgress = 0): BranchSide {
+  if (chops < 2) return "none";
   const lastBranch = recentBranches[recentBranches.length - 1] ?? "none";
 
   // Keep one empty spacer row after every branch so the player never gets
@@ -110,6 +111,7 @@ export function createInitialRuntime(): LumberjackRuntime {
     branches: createBranches(),
     chopEffect: null,
     side: "left",
+    chops: 0,
     logs: 0,
     combo: 0,
     energy: 1,

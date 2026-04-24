@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CHOP_LOCK_MS,
   RUN_DURATION_MS,
+  SAFE_BRANCH_ROWS,
   createBranches,
   createInitialRuntime,
   hasBranchCollision,
@@ -126,6 +127,7 @@ export function useLumberjackGame(canPlay = true) {
     runtime.branches = createBranches();
     runtime.chopEffect = null;
     runtime.side = "left";
+    runtime.chops = 0;
     runtime.logs = 0;
     runtime.combo = 0;
     runtime.energy = 1;
@@ -176,11 +178,14 @@ export function useLumberjackGame(canPlay = true) {
       }
 
       const nextCombo = runtime.combo + 1;
-      const nextLogs = runtime.logs + 1;
+      const nextChops = runtime.chops + 1;
+      const clearedBranch = runtime.branches[SAFE_BRANCH_ROWS];
+      const nextLogs = runtime.logs + (clearedBranch && clearedBranch !== "none" ? 1 : 0);
       const runProgress = Math.max(0, Math.min(1, (now - runtime.startTime) / RUN_DURATION_MS));
-      runtime.branches = [...runtime.branches.slice(1), randomBranch(nextLogs, runtime.branches.slice(-2), runProgress)];
+      runtime.branches = [...runtime.branches.slice(1), randomBranch(nextChops, runtime.branches.slice(-2), runProgress)];
       runtime.chopEffect = { side: nextSide, startedAt: now };
       runtime.lastChopAt = now;
+      runtime.chops = nextChops;
       runtime.logs = nextLogs;
       runtime.combo = nextCombo;
 

@@ -33,6 +33,17 @@ const SKYBOUND_JUMP_URL = import.meta.env.VITE_SKYBOUND_JUMP_URL || "https://arc
 const LUMBERJACK_URL = import.meta.env.VITE_LUMBERJACK_URL || "https://lumberjack.up.railway.app";
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
+function getPlatformGameImage(slug: string, fallbackImage?: string) {
+  switch (slug) {
+    case "skybound-jump":
+      return "/monkey_run_9x16.webp";
+    case "lumberjack":
+      return "/lumberjack_9x16.webp";
+    default:
+      return fallbackImage && fallbackImage.length > 0 ? fallbackImage : "/banana.png";
+  }
+}
+
 const fallbackGames: GameCard[] = [
   {
     id: "skybound-jump",
@@ -41,8 +52,8 @@ const fallbackGames: GameCard[] = [
     description: "A jungle platformer where you jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
     url: SKYBOUND_JUMP_URL,
     status: "live",
-    image: "/monkey.png",
-    tags: ["Leaderboard", "Gas voucher", "Mainnet"],
+    image: "/monkey_run_9x16.webp",
+    tags: [],
   },
   {
     id: "lumberjack",
@@ -51,8 +62,8 @@ const fallbackGames: GameCard[] = [
     description: "A fast tap arcade game where you chop logs, switch sides, dodge branches, and submit your best run on-chain.",
     url: LUMBERJACK_URL,
     status: "live",
-    image: "/games-on-vara-logo.svg",
-    tags: ["Tap arcade", "Best run", "Vara Arcade"],
+    image: "/lumberjack_9x16.webp",
+    tags: ["Vara Arcade"],
   },
 ];
 
@@ -66,9 +77,18 @@ function normalizeTags(tags: unknown): string[] {
   return Array.isArray(tags) ? tags.filter((tag): tag is string => typeof tag === "string") : [];
 }
 
+function getPlatformGameTags(slug: string, tags: string[]) {
+  if (slug === "lumberjack") {
+    return tags.filter((tag) => tag !== "Tap arcade" && tag !== "Best run");
+  }
+
+  return tags;
+}
+
 function normalizeGame(game: ApiGame): GameCard {
   const status = normalizeStatus(game.status);
   const id = String(game.slug || game.id || game.title || "game");
+  const backendImage = typeof game.imageUrl === "string" ? game.imageUrl : "";
 
   return {
     id,
@@ -77,8 +97,8 @@ function normalizeGame(game: ApiGame): GameCard {
     description: String(game.description || ""),
     url: typeof game.url === "string" ? game.url : typeof game.frontendUrl === "string" ? game.frontendUrl : undefined,
     status,
-    image: typeof game.imageUrl === "string" && game.imageUrl.length > 0 ? game.imageUrl : "/banana.png",
-    tags: normalizeTags(game.tags),
+    image: getPlatformGameImage(id, backendImage),
+    tags: getPlatformGameTags(id, normalizeTags(game.tags)),
   };
 }
 
@@ -104,6 +124,7 @@ function openGame(game: GameCard) {
 
 function PlatformApp() {
   const [games, setGames] = useState<GameCard[]>(fallbackGames);
+  const visibleGames = games.filter((game) => game.status === "live");
 
   useEffect(() => {
     let cancelled = false;
@@ -134,24 +155,12 @@ function PlatformApp() {
       </header>
 
       <section className="game-grid" aria-label="Available games">
-        {games.map((game) => (
-          <article className={`game-card${game.status === "soon" ? " is-soon" : ""}`} key={game.id}>
+        {visibleGames.map((game) => (
+          <article className={`game-card game-card--${game.id}${game.status === "soon" ? " is-soon" : ""}`} key={game.id}>
             <div className="game-art">
               <img src={game.image} alt="" />
-            </div>
-            <div className="game-content">
-              <div className="game-title-block">
-                <span>{game.eyebrow}</span>
-                <h2>{game.title}</h2>
-              </div>
-              <p>{game.description}</p>
-              <div className="tag-row" aria-label={`${game.title} features`}>
-                {game.tags.map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
-              </div>
               <button
-                className="play-action"
+                className="play-action play-action--overlay"
                 type="button"
                 disabled={game.status !== "live"}
                 onClick={() => openGame(game)}
