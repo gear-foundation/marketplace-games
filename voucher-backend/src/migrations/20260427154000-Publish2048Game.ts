@@ -6,8 +6,8 @@ const GAME_2048_DESCRIPTION =
   'A 2048 puzzle game with wallet score submission and gas voucher support on Vara.';
 const GAME_2048_CONTRACT =
   '0xc7869c8ae18d9b4e51df2237788e837a614538c8ca52ef3f0fac81d9442f78d5';
-const GAME_2048_FRONTEND_URL = 'https://2048.up.railway.app';
-const GAME_2048_IMAGE_URL = '/2048_16x9.svg';
+const GAME_2048_FRONTEND_URL = 'https://2048-vara.up.railway.app/';
+const GAME_2048_IMAGE_URL = '/2048image.png';
 const GAME_2048_TAGS = JSON.stringify(['Puzzle', 'Leaderboard', 'Gas voucher']);
 
 export class Publish2048Game20260427154000 implements MigrationInterface {

@@ -108,7 +108,7 @@ const FALLBACK_GAMES: GameCard[] = [
     id: "2048",
     title: "2048",
     description: "Merge tiles, post your best score on-chain, and play with daily gas voucher support on Vara.",
-    url: "https://2048.up.railway.app",
+    url: "https://2048-vara.up.railway.app/",
     status: "live",
     image: "/2048image.png",
     categories: ["brain"],
