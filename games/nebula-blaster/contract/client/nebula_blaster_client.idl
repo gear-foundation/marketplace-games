@@ -1,0 +1,44 @@
+type SubmitOutcome = enum {
+  Accepted: struct {
+    rank_daily: opt u32,
+    rank_alltime: opt u32,
+    new_best: bool,
+  },
+};
+
+type Error = enum {
+  ImplausibleScore,
+  BadDuration,
+};
+
+type ScoreEntry = struct {
+  player: actor_id,
+  score: u32,
+  submitted_at: u64,
+};
+
+type PlayerStats = struct {
+  runs_played: u32,
+  best_score: u32,
+  last_played_at: u64,
+};
+
+constructor {
+  New : ();
+};
+
+service NebulaBlasterService {
+  SubmitScore : (score: u32, run_duration_ms: u32) -> result (SubmitOutcome, Error);
+  query GetAlltimeTop : (limit: u32) -> vec ScoreEntry;
+  query GetDailyTop : (limit: u32) -> vec ScoreEntry;
+  query GetPlayerStats : (who: actor_id) -> opt PlayerStats;
+
+  events {
+    ScoreSubmitted: struct {
+      player: actor_id,
+      score: u32,
+      new_best: bool,
+    };
+  }
+};
+

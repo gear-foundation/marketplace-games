@@ -54,20 +54,23 @@ const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "")
 const INITIAL_VOTES: Record<string, number> = {
   "skybound-jump": 847,
   lumberjack: 1203,
+  "nebula-blaster": 0,
 };
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
-    case "skybound-jump": return "/monkey_run_16x9.webp";
-    case "lumberjack":    return "/lumberjack_16x9.webp";
-    default:              return fallback || "";
+    case "skybound-jump":   return "/monkey_run_16x9.webp";
+    case "lumberjack":      return "/lumberjack_16x9.webp";
+    case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
+    default:                return fallback || "";
   }
 }
 
 function getGameCategories(slug: string, tags: string[]): CategoryId[] {
   switch (slug) {
-    case "skybound-jump": return ["platformer", "arcade"];
-    case "lumberjack":    return ["arcade"];
+    case "skybound-jump":  return ["platformer", "arcade"];
+    case "lumberjack":     return ["arcade"];
+    case "nebula-blaster": return ["shooter", "arcade"];
     default: {
       const tl = tags.map(t => t.toLowerCase());
       const cats: CategoryId[] = [];
@@ -102,15 +105,18 @@ const FALLBACK_GAMES: GameCard[] = [
     image: "/lumberjack_16x9.webp",
     categories: ["arcade"],
   },
-];
-
-const SOON_GAMES: GameCard[] = [
   {
     id: "nebula-blaster",
     title: "Nebula Blaster",
-    description: "Pilot your ship through asteroid fields, blast enemies, and climb the on-chain leaderboard.",
-    status: "soon", image: "", categories: ["shooter"],
+    description: "Pilot your ship through asteroid fields, blast enemies, chain kills for multipliers, and climb the on-chain leaderboard.",
+    url: "https://nebula-blaster.up.railway.app",
+    status: "live",
+    image: "/nebula_blaster_16x9.webp",
+    categories: ["shooter", "arcade"],
   },
+];
+
+const SOON_GAMES: GameCard[] = [
   {
     id: "chain-battles",
     title: "Chain Battles",
