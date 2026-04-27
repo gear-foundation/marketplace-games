@@ -1,5 +1,23 @@
 [
   {
+    "slug": "nebula-blaster",
+    "title": "Nebula Blaster",
+    "description": "A fast wave-survival shooter where you dodge, blast enemies, chain multipliers, and submit your best run on-chain.",
+    "frontendUrl": "${NEBULA_BLASTER_URL:https://nebula-blaster.up.railway.app}",
+    "contractAddress": "0x201f2fb491236d75b6c971a9910593bf8755eae13c62ab3ac10b4ae9c08a3bb4",
+    "imageUrl": "${NEBULA_BLASTER_IMAGE_URL:/nebula_blaster_16x9.webp}",
+    "tags": ["Shooter", "Leaderboard", "Gas voucher"],
+    "status": "live",
+    "sortOrder": 5,
+    "gasless": {
+      "enabled": true,
+      "name": "NebulaBlaster",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
+  },
+  {
     "slug": "skybound-jump",
     "title": "Skybound Jump",
     "description": "A jungle platformer where you jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",

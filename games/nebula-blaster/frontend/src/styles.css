@@ -313,6 +313,14 @@ img { display: block; }
 
 .wallet-widget > * { width: 100%; }
 
+.nebula-wallet-warning {
+  border: 1px solid rgba(255, 196, 61, 0.28);
+  border-radius: 3px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(255, 196, 61, 0.12) 0%, rgba(255, 196, 61, 0.04) 100%);
+  box-shadow: inset 0 0 18px rgba(255, 196, 61, 0.05);
+}
+
 /* ─── Play button ────────────────────────────────────────────────────────── */
 
 .nebula-play-btn {
@@ -387,6 +395,7 @@ img { display: block; }
 }
 
 .nebula-note--muted   { color: #2a3a50; }
+.nebula-note--warning { color: #ffd86d; text-shadow: 0 0 10px rgba(255, 196, 61, 0.14); }
 .nebula-note--error   { color: var(--red);   text-shadow: 0 0 8px rgba(255,45,85,0.4); }
 .nebula-note--pending { color: var(--cyan);  text-shadow: 0 0 8px rgba(0,229,255,0.3); }
 .nebula-note--success { color: var(--green); text-shadow: 0 0 8px rgba(57,255,110,0.4); }

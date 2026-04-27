@@ -53,14 +53,11 @@ function NebulaAppContent() {
   }, [submitScore]);
 
   const handlePlay = useCallback(() => {
-    if (!walletConnected) return;
     setGameEndPayload(null);
     setPlaying(true);
-  }, [walletConnected]);
+  }, []);
 
-  const playDisabledReason = !walletConnected
-    ? "Connect wallet to play"
-    : playing
+  const playDisabledReason = playing
     ? "Game in progress"
     : submitStatus === "pending"
     ? "Submitting score…"
@@ -85,6 +82,13 @@ function NebulaAppContent() {
         <Suspense fallback={<div className="nebula-loading">Loading wallet…</div>}>
           <WalletGate onConnectionChange={setWalletConnected} />
         </Suspense>
+        {!walletConnected && (
+          <section className="nebula-wallet-warning" aria-label="Wallet recommendation">
+            <p className="nebula-note nebula-note--warning">
+              To track your progress and appear on the leaderboard, we recommend connecting your free Vara wallet.
+            </p>
+          </section>
+        )}
 
         <button
           className="nebula-play-btn"
@@ -93,7 +97,7 @@ function NebulaAppContent() {
         >
           {playing ? "Playing…" : "Play"}
         </button>
-        {playDisabledReason && !playing && (
+        {playDisabledReason && (
           <p className="nebula-note nebula-note--muted">{playDisabledReason}</p>
         )}
 

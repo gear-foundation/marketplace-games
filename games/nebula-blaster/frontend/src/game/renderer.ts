@@ -165,7 +165,7 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: GameState, dt:
 
   // Overlay screens
   if (state.status === "idle") {
-    drawOverlay(ctx, "NEBULA BLASTER", "Connect wallet & click Play");
+    drawOverlay(ctx, "NEBULA BLASTER", "Click Play");
   } else if (state.status === "ended") {
     const title = state.endReason === "timeout" ? "VICTORY!" : "GAME OVER";
     drawOverlay(ctx, title, `Score: ${state.score}`);
