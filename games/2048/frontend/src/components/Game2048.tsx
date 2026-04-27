@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAccount } from "@gear-js/react-hooks";
 import { Board, type BoardAnimation } from "./Board";
 import { Game2048ChainPanel, type Game2048PlayAccess } from "./Game2048ChainPanel";
 import { ScorePanel } from "./ScorePanel";
@@ -6,7 +7,6 @@ import { continueAfterWin, createNewGame, stepGame } from "../game/game-state";
 import type { Board as BoardMatrix, Direction, GameState, Position } from "../game/types";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import { useSwipeControls } from "../hooks/useSwipeControls";
-import { loadBestScore, saveBestScore } from "../storage/bestScore";
 
 const MOVE_ANIMATION_MS = 220;
 
@@ -47,7 +47,10 @@ function buildNewGame(bestScore: number): GameState {
 }
 
 export function Game2048() {
-  const [game, setGame] = useState<GameState>(() => buildNewGame(loadBestScore()));
+  const { account } = useAccount();
+  const [game, setGame] = useState<GameState>(() => buildNewGame(0));
+  const [gameSessionId, setGameSessionId] = useState(1);
+  const [isCurrentSessionSubmitted, setIsCurrentSessionSubmitted] = useState(false);
   const [moveId, setMoveId] = useState(1);
   const [animatedCellIds, setAnimatedCellIds] = useState<string[]>([]);
   const [spawnedCellId, setSpawnedCellId] = useState<string | null>(null);
@@ -59,11 +62,11 @@ export function Game2048() {
     title: "Loading wallet",
     description: "Wallet providers are still loading. The board unlocks as soon as a wallet becomes available.",
   });
+  const accountIdentity = account?.decodedAddress || account?.address || "";
+  const previousAccountIdentity = useRef(accountIdentity);
   const canPlay = playAccess.canPlay;
-
-  useEffect(() => {
-    saveBestScore(game.bestScore);
-  }, [game.bestScore]);
+  const requiresScoreSubmit = game.status === "lost" && !isCurrentSessionSubmitted;
+  const canStartNewGame = canPlay && !requiresScoreSubmit;
 
   useEffect(() => {
     if (!boardAnimation) {
@@ -82,17 +85,34 @@ export function Game2048() {
     };
   }, [boardAnimation]);
 
-  function startNewGame() {
-    if (!canPlay) {
+  useEffect(() => {
+    if (previousAccountIdentity.current === accountIdentity) {
       return;
     }
 
-    const bestScore = Math.max(game.bestScore, loadBestScore());
-    const nextGame = buildNewGame(bestScore);
+    previousAccountIdentity.current = accountIdentity;
+    const nextGame = buildNewGame(0);
     setGame(nextGame);
     setBoardAnimation(null);
     setAnimatedCellIds(getOccupiedCellIds(nextGame.board));
     setSpawnedCellId(null);
+    setIsCurrentSessionSubmitted(false);
+    setGameSessionId((current) => current + 1);
+    setMoveId((current) => current + 1);
+  }, [accountIdentity]);
+
+  function startNewGame() {
+    if (!canStartNewGame) {
+      return;
+    }
+
+    const nextGame = buildNewGame(game.bestScore);
+    setGame(nextGame);
+    setBoardAnimation(null);
+    setAnimatedCellIds(getOccupiedCellIds(nextGame.board));
+    setSpawnedCellId(null);
+    setIsCurrentSessionSubmitted(false);
+    setGameSessionId((current) => current + 1);
     setMoveId((current) => current + 1);
   }
 
@@ -158,7 +178,9 @@ export function Game2048() {
     visibleStatus === "won"
       ? "The 2048 tile is on the board. Continue if you want to chase a bigger score."
       : visibleStatus === "lost"
-        ? "No more valid moves remain on the board. Start a new run and try a different route."
+        ? requiresScoreSubmit
+          ? "No more valid moves remain. Submit your score to unlock the next run."
+          : "No more valid moves remain on the board. Start a new run and try a different route."
         : "";
 
   return (
@@ -167,9 +189,6 @@ export function Game2048() {
         <div className="hero-copy">
           <p className="eyebrow">Puzzle Sprint</p>
           <h1>2048</h1>
-          <p className="hero-description">
-            Merge equal tiles, keep the grid alive, and push past the golden 2048 mark with arrows, WASD, or a swipe.
-          </p>
         </div>
 
         <div className="hero-actions">
@@ -179,7 +198,7 @@ export function Game2048() {
           </div>
 
           <div className="button-row">
-            <button className="action-button action-button--primary" type="button" onClick={startNewGame} disabled={!canPlay}>
+            <button className="action-button action-button--primary" type="button" onClick={startNewGame} disabled={!canStartNewGame}>
               New Game
             </button>
             {visibleStatus === "won" ? (
@@ -223,7 +242,7 @@ export function Game2048() {
                         Continue
                       </button>
                     ) : null}
-                    <button className="action-button action-button--primary" type="button" onClick={startNewGame}>
+                    <button className="action-button action-button--primary" type="button" onClick={startNewGame} disabled={!canStartNewGame}>
                       New Game
                     </button>
                   </div>
@@ -251,7 +270,14 @@ export function Game2048() {
         </div>
 
         <aside className="info-panel">
-          <Game2048ChainPanel bestScore={game.bestScore} score={game.score} status={visibleStatus} onPlayAccessChange={setPlayAccess} />
+          <Game2048ChainPanel
+            bestScore={game.bestScore}
+            score={game.score}
+            status={visibleStatus}
+            gameSessionId={gameSessionId}
+            onPlayAccessChange={setPlayAccess}
+            onSessionSubmitStateChange={setIsCurrentSessionSubmitted}
+          />
         </aside>
       </section>
     </main>

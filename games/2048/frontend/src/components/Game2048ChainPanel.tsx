@@ -52,7 +52,9 @@ type Game2048ChainPanelProps = {
   bestScore: number;
   score: number;
   status: GameStatus;
+  gameSessionId: number;
   onPlayAccessChange?: (state: Game2048PlayAccess) => void;
+  onSessionSubmitStateChange?: (submitted: boolean) => void;
 };
 
 export type Game2048PlayAccess = {
@@ -89,7 +91,14 @@ function hasUsableVoucher(state: VoucherState, programId: `0x${string}`) {
   return hasVoucherProgramAccess(state, programId) && !isVoucherExpired(state.validUpTo) && !isVoucherDrained(state);
 }
 
-export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChange }: Game2048ChainPanelProps) {
+export function Game2048ChainPanel({
+  bestScore,
+  score,
+  status,
+  gameSessionId,
+  onPlayAccessChange,
+  onSessionSubmitStateChange,
+}: Game2048ChainPanelProps) {
   const { account, isAccountReady } = useAccount();
   const { api, isApiReady } = useApi();
 
@@ -101,6 +110,7 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
   const [voucherMessage, setVoucherMessage] = useState("");
   const [chainStatusMessage, setChainStatusMessage] = useState("");
   const [sailsClient, setSailsClient] = useState<Sails | null>(null);
+  const [submittedSessionId, setSubmittedSessionId] = useState<number | null>(null);
   const [playAccess, setPlayAccess] = useState<Game2048PlayAccess>({
     canPlay: false,
     title: "Loading wallet",
@@ -111,11 +121,14 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
   const voucherBackendUrl = useMemo(() => getConfiguredBackendUrl(VOUCHER_BACKEND_URL), []);
   const connectedAccountAddress = account?.decodedAddress || account?.address || "";
   const localBestScore = Math.max(bestScore, score);
+  const isSubmittedForCurrentSession = submittedSessionId === gameSessionId;
   const shouldShowCurrentPlayerRank =
     currentPlayerRank !== null && currentPlayerRank > VISIBLE_LEADERBOARD_LIMIT && currentPlayerEntry !== null;
 
   const submitDisabledReason = useMemo(() => {
     if (!playAccess.canPlay) return playAccess.description || "wallet access is still locked";
+    if (status !== "lost") return "finish the current game first";
+    if (isSubmittedForCurrentSession) return "score already submitted for this game";
     if (localBestScore <= 0) return "score some points first";
     if (!isApiReady || !api) return "network is connecting";
     if (!programId) return "2048 program id is not configured";
@@ -123,16 +136,42 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
     if (!isAccountReady) return "wallets are still loading";
     if (!connectedAccountAddress) return "wallet required";
     return "";
-  }, [api, chainStatusMessage, connectedAccountAddress, isAccountReady, isApiReady, localBestScore, playAccess, programId, sailsClient]);
+  }, [
+    api,
+    chainStatusMessage,
+    connectedAccountAddress,
+    isAccountReady,
+    isApiReady,
+    isSubmittedForCurrentSession,
+    localBestScore,
+    playAccess,
+    programId,
+    sailsClient,
+    status,
+  ]);
 
   useEffect(() => {
     onPlayAccessChange?.(playAccess);
   }, [onPlayAccessChange, playAccess]);
 
   useEffect(() => {
+    onSessionSubmitStateChange?.(isSubmittedForCurrentSession);
+  }, [isSubmittedForCurrentSession, onSessionSubmitStateChange]);
+
+  useEffect(() => {
+    setSubmittedSessionId(null);
     setSubmitStatus("idle");
     setSubmitMessage("");
-  }, [localBestScore]);
+  }, [gameSessionId]);
+
+  useEffect(() => {
+    if (isSubmittedForCurrentSession || submitStatus === "pending") {
+      return;
+    }
+
+    setSubmitStatus("idle");
+    setSubmitMessage("");
+  }, [isSubmittedForCurrentSession, localBestScore, submitStatus]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -382,6 +421,7 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
 
       try {
         const { result, reply } = await send();
+        setSubmittedSessionId(gameSessionId);
         setSubmitStatus("success");
         setSubmitMessage(
           `${reply.improved ? "Best score updated" : "Score submitted; best on-chain score unchanged"} · tx ${shortAddress(
@@ -437,6 +477,7 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
 
         setSubmitMessage("Confirm the score transaction in your wallet extension. Gas is covered by voucher.");
         const { result, reply } = await send(voucher.voucherId);
+        setSubmittedSessionId(gameSessionId);
         setSubmitStatus("success");
         setSubmitMessage(
           `${reply.improved ? "Best score updated" : "Score submitted; best on-chain score unchanged"} · tx ${shortAddress(
@@ -492,16 +533,28 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
           : `On-chain submit failed: ${formatError(error)}`,
       );
     }
-  }, [account, api, getWalletBalance, localBestScore, programId, refreshChainState, refreshVoucherState, sailsClient, submitDisabledReason, voucherBackendUrl]);
+  }, [
+    account,
+    api,
+    gameSessionId,
+    getWalletBalance,
+    localBestScore,
+    programId,
+    refreshChainState,
+    refreshVoucherState,
+    sailsClient,
+    submitDisabledReason,
+    voucherBackendUrl,
+  ]);
 
-  const buttonLabel = submitStatus === "pending" ? "Submitting..." : "Submit Best Score";
+  const buttonLabel = submitStatus === "pending" ? "Submitting..." : isSubmittedForCurrentSession ? "Submitted For This Game" : "Submit Score";
   const isSubmitDisabled = Boolean(submitDisabledReason) || submitStatus === "pending";
   const chainBestScore = currentPlayerEntry?.score ?? 0;
   const resultHint =
     submitMessage ||
     (status === "lost"
-      ? "Game over. Submit your browser best score when you are ready."
-      : "Your best local score can be sent on-chain at any time.");
+      ? "Game over. Submit your score to unlock the next run."
+      : "Submit unlocks only after the current run ends.");
 
   return (
     <>
@@ -512,7 +565,7 @@ export function Game2048ChainPanel({ bestScore, score, status, onPlayAccessChang
 
         <div className="chain-stats">
           <div className="chain-stat">
-            <span>Browser Best</span>
+            <span>Session Best</span>
             <strong>{bestScore.toLocaleString()}</strong>
           </div>
           <div className="chain-stat">

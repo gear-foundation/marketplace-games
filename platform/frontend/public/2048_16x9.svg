@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">2048</title>
+  <desc id="desc">An abstract 2048 puzzle board illustration.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#f6e8d5" />
+      <stop offset="55%" stop-color="#e7c48f" />
+      <stop offset="100%" stop-color="#cf7d2d" />
+    </linearGradient>
+    <linearGradient id="panel" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#7d5c41" />
+      <stop offset="100%" stop-color="#5b3f2b" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)" />
+  <circle cx="1320" cy="160" r="180" fill="#fff3df" opacity="0.42" />
+  <circle cx="250" cy="760" r="220" fill="#f4b566" opacity="0.2" />
+  <g transform="translate(170 110)">
+    <text x="0" y="110" fill="#332517" font-family="Space Grotesk, Arial, sans-serif" font-size="132" font-weight="700">2048</text>
+    <text x="0" y="188" fill="#5d4b3d" font-family="Space Grotesk, Arial, sans-serif" font-size="42">
+      Merge tiles, climb the leaderboard.
+    </text>
+  </g>
+  <g transform="translate(830 130)">
+    <rect x="0" y="0" width="540" height="540" rx="44" fill="url(#panel)" />
+    <g transform="translate(28 28)">
+      <rect x="0" y="0" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="126" y="0" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="252" y="0" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="378" y="0" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="0" y="126" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="126" y="126" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="252" y="126" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="378" y="126" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="0" y="252" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="126" y="252" width="108" height="108" rx="24" fill="#f79a4b" />
+      <rect x="252" y="252" width="108" height="108" rx="24" fill="#f2c65d" />
+      <rect x="378" y="252" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="0" y="378" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="126" y="378" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <rect x="252" y="378" width="108" height="108" rx="24" fill="#c9821f" />
+      <rect x="378" y="378" width="108" height="108" rx="24" fill="#f7ecdf" opacity="0.18" />
+      <text x="180" y="318" fill="#fff8ef" font-family="Space Grotesk, Arial, sans-serif" font-size="56" font-weight="700" text-anchor="middle">8</text>
+      <text x="306" y="318" fill="#352311" font-family="Space Grotesk, Arial, sans-serif" font-size="46" font-weight="700" text-anchor="middle">128</text>
+      <text x="306" y="444" fill="#fff8ef" font-family="Space Grotesk, Arial, sans-serif" font-size="42" font-weight="700" text-anchor="middle">2048</text>
+    </g>
+  </g>
+</svg>

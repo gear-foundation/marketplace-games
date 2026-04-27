@@ -56,12 +56,12 @@
   {
     "slug": "2048",
     "title": "2048",
-    "description": "A hidden 2048 puzzle game with wallet score submission and gas voucher support on Vara.",
-    "frontendUrl": null,
+    "description": "A 2048 puzzle game with wallet score submission and gas voucher support on Vara.",
+    "frontendUrl": "${GAME_2048_URL:https://2048.up.railway.app}",
     "contractAddress": "0xc7869c8ae18d9b4e51df2237788e837a614538c8ca52ef3f0fac81d9442f78d5",
-    "imageUrl": null,
+    "imageUrl": "${GAME_2048_IMAGE_URL:/2048image.png}",
     "tags": ["Puzzle", "Leaderboard", "Gas voucher"],
-    "status": "hidden",
+    "status": "live",
     "sortOrder": 40,
     "gasless": {
       "enabled": true,
