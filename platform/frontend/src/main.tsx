@@ -53,14 +53,16 @@ const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "")
 
 const INITIAL_VOTES: Record<string, number> = {
   "skybound-jump": 847,
-  lumberjack: 1203,
+  "lumberjack": 1203,
+  "nebula-blaster": 0,
   "2048": 0,
 };
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
-    case "skybound-jump": return "/monkey_run_16x9.webp";
-    case "lumberjack":    return "/lumberjack_16x9.webp";
+    case "skybound-jump":   return "/monkey_run_16x9.webp";
+    case "lumberjack":      return "/lumberjack_16x9.webp";
+    case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
     case "2048":          return "/2048image.png";
     default:              return fallback || "";
   }
@@ -68,8 +70,9 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
 
 function getGameCategories(slug: string, tags: string[]): CategoryId[] {
   switch (slug) {
-    case "skybound-jump": return ["platformer", "arcade"];
-    case "lumberjack":    return ["arcade"];
+    case "skybound-jump":  return ["platformer", "arcade"];
+    case "lumberjack":     return ["arcade"];
+    case "nebula-blaster": return ["shooter", "arcade"];
     default: {
       const tl = tags.map(t => t.toLowerCase());
       const cats: CategoryId[] = [];
@@ -87,13 +90,13 @@ function getGameCategories(slug: string, tags: string[]): CategoryId[] {
 
 const FALLBACK_GAMES: GameCard[] = [
   {
-    id: "skybound-jump",
-    title: "Skybound Jump",
-    description: "A jungle platformer — jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
-    url: "https://arcade-vara.up.railway.app",
+    id: "nebula-blaster",
+    title: "Nebula Blaster",
+    description: "Pilot your ship through asteroid fields, blast enemies, chain kills for multipliers, and climb the on-chain leaderboard.",
+    url: "https://nebula-blaster.up.railway.app",
     status: "live",
-    image: "/monkey_run_16x9.webp",
-    categories: ["platformer", "arcade"],
+    image: "/nebula_blaster_16x9.webp",
+    categories: ["shooter", "arcade"],
   },
   {
     id: "lumberjack",
@@ -103,6 +106,15 @@ const FALLBACK_GAMES: GameCard[] = [
     status: "live",
     image: "/lumberjack_16x9.webp",
     categories: ["arcade"],
+  },
+  {
+    id: "skybound-jump",
+    title: "Skybound Jump",
+    description: "A jungle platformer — jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
+    url: "https://arcade-vara.up.railway.app",
+    status: "live",
+    image: "/monkey_run_16x9.webp",
+    categories: ["platformer", "arcade"],
   },
   {
     id: "2048",
@@ -116,12 +128,6 @@ const FALLBACK_GAMES: GameCard[] = [
 ];
 
 const SOON_GAMES: GameCard[] = [
-  {
-    id: "nebula-blaster",
-    title: "Nebula Blaster",
-    description: "Pilot your ship through asteroid fields, blast enemies, and climb the on-chain leaderboard.",
-    status: "soon", image: "", categories: ["shooter"],
-  },
   {
     id: "chain-battles",
     title: "Chain Battles",

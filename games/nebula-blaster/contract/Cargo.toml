@@ -1,0 +1,24 @@
+[package]
+name = "nebula-blaster"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[lib]
+path = "app/src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sails-rs = "0.10.3"
+
+[build-dependencies]
+sails-rs = { version = "0.10.3", features = ["build"] }
+
+[dev-dependencies]
+sails-rs = { version = "0.10.3", features = ["gtest"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[profile.release]
+lto = true
+opt-level = "s"
+overflow-checks = true
