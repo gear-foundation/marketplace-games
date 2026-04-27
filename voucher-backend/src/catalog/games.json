@@ -52,5 +52,41 @@
       "duration": 86400,
       "oneTime": false
     }
+  },
+  {
+    "slug": "vara-game",
+    "title": "Vara Game",
+    "description": "A hidden Vara Arcade game with gas voucher support enabled for contract integration.",
+    "frontendUrl": null,
+    "contractAddress": "0x201f2fb491236d75b6c971a9910593bf8755eae13c62ab3ac10b4ae9c08a3bb4",
+    "imageUrl": null,
+    "tags": ["Vara Arcade", "Gas voucher"],
+    "status": "hidden",
+    "sortOrder": 30,
+    "gasless": {
+      "enabled": true,
+      "name": "VaraGame",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
+  },
+  {
+    "slug": "2048",
+    "title": "2048",
+    "description": "A 2048 puzzle game with wallet score submission and gas voucher support on Vara.",
+    "frontendUrl": "${GAME_2048_URL:https://2048-vara.up.railway.app/}",
+    "contractAddress": "0xc7869c8ae18d9b4e51df2237788e837a614538c8ca52ef3f0fac81d9442f78d5",
+    "imageUrl": "${GAME_2048_IMAGE_URL:/2048image.png}",
+    "tags": ["Puzzle", "Leaderboard", "Gas voucher"],
+    "status": "live",
+    "sortOrder": 40,
+    "gasless": {
+      "enabled": true,
+      "name": "Game2048",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
   }
 ]

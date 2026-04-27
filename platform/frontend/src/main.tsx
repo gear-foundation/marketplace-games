@@ -53,8 +53,9 @@ const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "")
 
 const INITIAL_VOTES: Record<string, number> = {
   "skybound-jump": 847,
-  lumberjack: 1203,
+  "lumberjack": 1203,
   "nebula-blaster": 0,
+  "2048": 0,
 };
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
@@ -62,7 +63,8 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
     case "skybound-jump":   return "/monkey_run_16x9.webp";
     case "lumberjack":      return "/lumberjack_16x9.webp";
     case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
-    default:                return fallback || "";
+    case "2048":          return "/2048image.png";
+    default:              return fallback || "";
   }
 }
 
@@ -113,6 +115,15 @@ const FALLBACK_GAMES: GameCard[] = [
     status: "live",
     image: "/monkey_run_16x9.webp",
     categories: ["platformer", "arcade"],
+  },
+  {
+    id: "2048",
+    title: "2048",
+    description: "Merge tiles, post your best score on-chain, and play with daily gas voucher support on Vara.",
+    url: "https://2048-vara.up.railway.app/",
+    status: "live",
+    image: "/2048image.png",
+    categories: ["brain"],
   },
 ];
 
