@@ -88,13 +88,13 @@ function getGameCategories(slug: string, tags: string[]): CategoryId[] {
 
 const FALLBACK_GAMES: GameCard[] = [
   {
-    id: "skybound-jump",
-    title: "Skybound Jump",
-    description: "A jungle platformer — jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
-    url: "https://arcade-vara.up.railway.app",
+    id: "nebula-blaster",
+    title: "Nebula Blaster",
+    description: "Pilot your ship through asteroid fields, blast enemies, chain kills for multipliers, and climb the on-chain leaderboard.",
+    url: "https://nebula-blaster.up.railway.app",
     status: "live",
-    image: "/monkey_run_16x9.webp",
-    categories: ["platformer", "arcade"],
+    image: "/nebula_blaster_16x9.webp",
+    categories: ["shooter", "arcade"],
   },
   {
     id: "lumberjack",
@@ -106,13 +106,13 @@ const FALLBACK_GAMES: GameCard[] = [
     categories: ["arcade"],
   },
   {
-    id: "nebula-blaster",
-    title: "Nebula Blaster",
-    description: "Pilot your ship through asteroid fields, blast enemies, chain kills for multipliers, and climb the on-chain leaderboard.",
-    url: "https://nebula-blaster.up.railway.app",
+    id: "skybound-jump",
+    title: "Skybound Jump",
+    description: "A jungle platformer — jump higher, collect bananas, dodge tigers, and submit your best run on-chain.",
+    url: "https://arcade-vara.up.railway.app",
     status: "live",
-    image: "/nebula_blaster_16x9.webp",
-    categories: ["shooter", "arcade"],
+    image: "/monkey_run_16x9.webp",
+    categories: ["platformer", "arcade"],
   },
 ];
 
