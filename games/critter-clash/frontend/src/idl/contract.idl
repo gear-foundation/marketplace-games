@@ -1,0 +1,31 @@
+type SubmitRunReply = struct {
+  best_branches: u32,
+  improved: bool,
+};
+
+type LeaderboardEntry = struct {
+  player: actor_id,
+  branches: u32,
+};
+
+constructor {
+  Create : ();
+};
+
+service Game {
+  ClearLeaderboard : () -> null;
+  SubmitRun : (branches: u32) -> SubmitRunReply;
+  query Leaderboard : (limit: u32) -> vec LeaderboardEntry;
+  query PlayerBestBranches : (player: actor_id) -> u32;
+  query PlayerRank : (player: actor_id) -> opt u32;
+
+  events {
+    BestRunUpdated: struct {
+      player: actor_id,
+      branches: u32,
+    };
+    LeaderboardCleared: struct {
+      by: actor_id
+    };
+  }
+};
