@@ -2030,10 +2030,12 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // Regenerate the world and reset the run. Called from the win
-  // dialog. Uses Phaser's scene.restart() — that re-runs preload +
-  // create, which builds a fresh world via generateWorld() and a
-  // fresh robot via createRobot().
+  // Hand control back to the title screen. Called from the win / run-
+  // ended dialog. We bounce through the Menu scene rather than calling
+  // scene.restart() so the player sees the title, can change wallet /
+  // re-issue voucher / pick a hat, and presses START to spawn a fresh
+  // run. Pressing START in Menu boots GameScene which always builds a
+  // fresh world, so no extra reset state is required here.
   startNewRun() {
     const d = document.getElementById('win-dialog');
     if (d) d.style.display = 'none';
@@ -2042,7 +2044,7 @@ export default class GameScene extends Phaser.Scene {
       this._winKeyHandler = null;
     }
     this.awaitingRespawn = false;
-    this.scene.restart();
+    this.scene.start('Menu');
   }
 
   handleRobotPointerDown(pointer) {
