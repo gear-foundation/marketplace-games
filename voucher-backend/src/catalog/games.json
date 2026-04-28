@@ -88,5 +88,23 @@
       "duration": 86400,
       "oneTime": false
     }
+  },
+  {
+    "slug": "robo-miner",
+    "title": "Robo Miner",
+    "description": "A side-scrolling mining roguelike where you dig deeper, collect ore, dodge lava and rocks, and submit your best run on-chain.",
+    "frontendUrl": "${ROBO_MINER_URL:https://robo-miner.up.railway.app}",
+    "contractAddress": "0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1",
+    "imageUrl": "${ROBO_MINER_IMAGE_URL:/robo-miner.png}",
+    "tags": ["Mining", "Roguelike", "Gas voucher", "Mainnet"],
+    "status": "live",
+    "sortOrder": 50,
+    "gasless": {
+      "enabled": true,
+      "name": "RoboMiner",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
   }
 ]
