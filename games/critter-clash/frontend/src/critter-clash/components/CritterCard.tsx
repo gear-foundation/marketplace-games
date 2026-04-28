@@ -45,15 +45,15 @@ export function CritterCard({
     >
       <div className="card-stats-top">
         <span className="stat-pill stat-left" title="Attack">
-          <span className="stat-icon" aria-hidden="true">⚔</span>
+          <img className={`stat-icon ${mirrored ? "stat-icon-mirrored" : ""}`} src="/icons/attack.webp" alt="ATK" />
           <span>{critter.atk}</span>
         </span>
         <span className="stat-pill stat-center" title="Speed">
-          <span className="stat-icon" aria-hidden="true">⚡</span>
+          <img className={`stat-icon ${mirrored ? "stat-icon-mirrored" : ""}`} src="/icons/speed.webp" alt="SPD" />
           <span>{critter.speed}</span>
         </span>
         <span className="stat-pill stat-right" title="Health">
-          <span className="stat-icon" aria-hidden="true">♥</span>
+          <img className="stat-icon" src="/icons/heart.webp" alt="HP" />
           <span>{critter.hp}</span>
         </span>
       </div>

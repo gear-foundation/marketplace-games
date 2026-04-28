@@ -119,7 +119,14 @@ header p { margin: 6px 0 0; color: #cbd5e1; }
 .stat-left { justify-self: start; padding: 0 2px; }
 .stat-center { justify-self: center; padding: 0 2px; }
 .stat-right { justify-self: end; padding: 0 2px; }
-.stat-icon { font-size: 12px; line-height: 1; opacity: 0.9; }
+.stat-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+.stat-icon-mirrored { transform: scaleX(-1); }
 .critter-name {
   text-align: center;
   font-size: 16px;
