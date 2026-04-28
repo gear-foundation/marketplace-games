@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AnimState } from "./CritterCard";
 import { BattleEvent, Critter, Enemy } from "../game/types";
 import { TeamLine } from "./TeamLine";
 
@@ -29,6 +30,10 @@ type FloatingDamage = {
   targetSide: "player" | "enemy";
 };
 
+const ATTACK_MS = 380;
+const HURT_MS = 480;
+const DYING_MS = 700;
+
 export function BattleScreen({
   wave,
   biome,
@@ -46,10 +51,67 @@ export function BattleScreen({
   const lastEvent = battleLog[battleLog.length - 1];
   const playerFront = playerTeam.find((p) => p.hp > 0)?.id;
   const enemyFront = enemyTeam.find((e) => e.hp > 0)?.id;
+
   const [floatingDamages, setFloatingDamages] = useState<FloatingDamage[]>([]);
+  const [animStates, setAnimStates] = useState<Record<string, AnimState>>({});
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     if (!lastEvent || lastEvent.damage <= 0) return;
+
+    // Clear old timers from previous event
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+
+    const { attackerId, targetId, targetDied } = lastEvent;
+
+    setAnimStates((prev) => ({
+      ...prev,
+      [attackerId]: "attack",
+      [targetId]: targetDied ? "dying" : "hurt",
+    }));
+
+    // Clear attack anim
+    timersRef.current.push(
+      setTimeout(() => {
+        setAnimStates((prev) => {
+          if (prev[attackerId] !== "attack") return prev;
+          const next = { ...prev };
+          delete next[attackerId];
+          return next;
+        });
+      }, ATTACK_MS)
+    );
+
+    // Clear hurt anim
+    if (!targetDied) {
+      timersRef.current.push(
+        setTimeout(() => {
+          setAnimStates((prev) => {
+            if (prev[targetId] !== "hurt") return prev;
+            const next = { ...prev };
+            delete next[targetId];
+            return next;
+          });
+        }, HURT_MS)
+      );
+    }
+
+    // Clear dying anim (after this TeamLine will filter it out naturally via hp=0)
+    if (targetDied) {
+      timersRef.current.push(
+        setTimeout(() => {
+          setAnimStates((prev) => {
+            if (prev[targetId] !== "dying") return prev;
+            const next = { ...prev };
+            delete next[targetId];
+            return next;
+          });
+        }, DYING_MS)
+      );
+    }
+
+    // Floating damage number
     const targetSide = lastEvent.attackerSide === "player" ? "enemy" : "player";
     const floatingDamage: FloatingDamage = {
       id: `${lastEvent.id}-float`,
@@ -57,11 +119,23 @@ export function BattleScreen({
       targetSide,
     };
     setFloatingDamages((prev) => [...prev, floatingDamage]);
-    const timeout = window.setTimeout(() => {
-      setFloatingDamages((prev) => prev.filter((item) => item.id !== floatingDamage.id));
-    }, 650);
-    return () => window.clearTimeout(timeout);
+    timersRef.current.push(
+      setTimeout(() => {
+        setFloatingDamages((prev) => prev.filter((item) => item.id !== floatingDamage.id));
+      }, 650)
+    );
+
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    };
   }, [lastEvent]);
+
+  const dyingIds = new Set(
+    Object.entries(animStates)
+      .filter(([, s]) => s === "dying")
+      .map(([id]) => id)
+  );
 
   return (
     <section className={`panel battle-panel${focusMode ? " battle-panel-focus" : ""}`}>
@@ -105,13 +179,27 @@ export function BattleScreen({
             </span>
           ))}
         </div>
-        <TeamLine title="Your Team" team={playerTeam} frontId={playerFront} align="left" />
-        <TeamLine title="Enemy Team" team={enemyTeam} frontId={enemyFront} align="right" />
+        <TeamLine
+          title="Your Team"
+          team={playerTeam}
+          frontId={playerFront}
+          align="left"
+          animStates={animStates}
+          dyingIds={dyingIds}
+        />
+        <TeamLine
+          title="Enemy Team"
+          team={enemyTeam}
+          frontId={enemyFront}
+          align="right"
+          animStates={animStates}
+          dyingIds={dyingIds}
+        />
       </div>
       {lastEvent ? (
         <p className="battle-log">
-          {lastEvent.attackerSide === "player" ? "Your critter" : "Enemy"} dealt <strong>{lastEvent.damage}</strong>{" "}
-          damage
+          {lastEvent.attackerSide === "player" ? "Your critter" : "Enemy"} dealt{" "}
+          <strong>{lastEvent.damage}</strong> damage
           {lastEvent.targetDied ? " (KO)" : ""}
         </p>
       ) : (

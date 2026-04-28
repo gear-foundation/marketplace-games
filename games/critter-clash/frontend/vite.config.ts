@@ -2,8 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const allowedHosts = [
-  "lumberjack.up.railway.app",
-  "arcade-vara.up.railway.app",
+  "meme-pet-clash.up.railway.app",
   ...(process.env.VITE_ALLOWED_HOSTS || "")
     .split(",")
     .map((host) => host.trim())

@@ -41,18 +41,18 @@ function createInitialState(): GameState {
 export function Game() {
   const [state, setState] = useState<GameState>(createInitialState());
   const [battleFocusMode, setBattleFocusMode] = useState(false);
-  const debugMode = useMemo(() => new URLSearchParams(window.location.search).get("debug") === "true", []);
+  const debugMode = useMemo(
+    () => new URLSearchParams(window.location.search).get("debug") === "true",
+    []
+  );
 
   useEffect(() => {
     if (state.phase !== "battle") return;
     if (!state.isAutoBattling) return;
 
-    const interval = window.setInterval(
-      () => {
-        setState((prev) => tickBattle(prev));
-      },
-      state.battleTurnDelayMs
-    );
+    const interval = window.setInterval(() => {
+      setState((prev) => tickBattle(prev));
+    }, state.battleTurnDelayMs);
 
     return () => window.clearInterval(interval);
   }, [state.phase, state.isAutoBattling, state.battleTurnDelayMs]);
@@ -79,7 +79,9 @@ export function Game() {
       if (isSelected) {
         return {
           ...prev,
-          selectedStarterIds: prev.selectedStarterIds.filter((id) => id !== starterId),
+          selectedStarterIds: prev.selectedStarterIds.filter(
+            (id) => id !== starterId
+          ),
         };
       }
       if (prev.selectedStarterIds.length >= 3) return prev;
@@ -96,11 +98,15 @@ export function Game() {
       if (prev.selectedStarterIds.length !== 3) return prev;
       const selectedTeam = prev.selectedStarterIds
         .map((starterId, index) => {
-          const starter = prev.starterOptions.find((item) => item.id === starterId);
+          const starter = prev.starterOptions.find(
+            (item) => item.id === starterId
+          );
           if (!starter) return null;
           return { ...starter, id: `${starter.id}-${Date.now()}-${index}` };
         })
-        .filter((starter): starter is NonNullable<typeof starter> => starter !== null);
+        .filter(
+          (starter): starter is NonNullable<typeof starter> => starter !== null
+        );
       if (selectedTeam.length !== 3) return prev;
       const enemyTeam = createEnemyTeam(1, getBiomeForWave(1), random);
       return {
@@ -160,7 +166,10 @@ export function Game() {
     setState((prev) => {
       if (prev.playerTeam.length === 0) return prev;
       const [reward] = generateRewards(prev.playerTeam, random);
-      return updateScore({ ...prev, playerTeam: applyReward(prev.playerTeam, reward, random) });
+      return updateScore({
+        ...prev,
+        playerTeam: applyReward(prev.playerTeam, reward, random),
+      });
     });
   };
 
@@ -182,45 +191,64 @@ export function Game() {
   return (
     <main className={`cc-app biome-${state.biome}`}>
       <header>
-        <h1>Critter Clash</h1>
-        <p>Build a team. Survive endless waves.</p>
+        <h1>Meme Pet Clash</h1>
+        <p>
+          Pick your meme squad, outplay enemy waves, and scale your run score.
+        </p>
       </header>
 
       {state.phase === "intro" ? (
         <section className="panel center">
           <button type="button" onClick={startRun}>
-            Start Run
+            Start Meme Run
           </button>
         </section>
       ) : null}
 
       {state.phase === "choose_starter" ? (
         <section className="panel">
-          <h2>Choose 3 critters for your team</h2>
+          <h2>Choose your starter roster (3/3)</h2>
           <p className="muted">
-            Selected: {state.selectedStarterIds.length}/3. Battle starts only after you lock in all 3.
+            Pick from the 12 meme pets from the sprite pack. Lock 3 to begin the
+            first clash.
           </p>
           <section>
-            <h3>Selected team</h3>
+            <h3>Your lineup</h3>
             <div className="selected-team-line">
               {state.selectedStarterIds.map((selectedId) => {
-                const selectedPet = state.starterOptions.find((pet) => pet.id === selectedId);
+                const selectedPet = state.starterOptions.find(
+                  (pet) => pet.id === selectedId
+                );
                 if (!selectedPet) return null;
                 return (
                   <CritterCard
                     key={`selected-${selectedPet.id}`}
                     critter={selectedPet}
                     compact
-                    buttonLabel="Remove"
                     onClick={() => toggleStarter(selectedPet.id)}
                   />
                 );
               })}
-              {Array.from({ length: Math.max(0, 3 - state.selectedStarterIds.length) }).map((_, index) => (
-                <article key={`slot-${index}`} className="critter-card compact slot-card">
-                  <div className="slot-placeholder">Empty slot</div>
+              {Array.from({
+                length: Math.max(0, 3 - state.selectedStarterIds.length),
+              }).map((_, index) => (
+                <article
+                  key={`slot-${index}`}
+                  className="critter-card compact slot-card"
+                >
+                  <div className="slot-placeholder">Open slot</div>
                 </article>
               ))}
+            </div>
+            <div className="actions-row">
+              <button
+                className="start-clash-button"
+                type="button"
+                disabled={state.selectedStarterIds.length !== 3}
+                onClick={startStarterBattle}
+              >
+                Start clash
+              </button>
             </div>
           </section>
           <div className="starter-grid">
@@ -229,15 +257,9 @@ export function Game() {
                 key={pet.id}
                 critter={pet}
                 highlighted={state.selectedStarterIds.includes(pet.id)}
-                buttonLabel={state.selectedStarterIds.includes(pet.id) ? "Remove" : "Add to team"}
                 onClick={() => toggleStarter(pet.id)}
               />
             ))}
-          </div>
-          <div className="actions-row">
-            <button type="button" disabled={state.selectedStarterIds.length !== 3} onClick={startStarterBattle}>
-              Start battle
-            </button>
           </div>
         </section>
       ) : null}
@@ -253,15 +275,27 @@ export function Game() {
           battleTurnDelayMs={state.battleTurnDelayMs}
           focusMode={battleFocusMode}
           onToggleFocusMode={() => setBattleFocusMode((prev) => !prev)}
-          onToggleAutoBattle={(value: boolean) => setState((prev) => ({ ...prev, isAutoBattling: value }))}
+          onToggleAutoBattle={(value: boolean) =>
+            setState((prev) => ({ ...prev, isAutoBattling: value }))
+          }
           onNextTurn={() => setState((prev) => tickBattle(prev))}
-          onChangeBattleSpeed={(value: number) => setState((prev) => ({ ...prev, battleTurnDelayMs: value }))}
+          onChangeBattleSpeed={(value: number) =>
+            setState((prev) => ({ ...prev, battleTurnDelayMs: value }))
+          }
         />
       ) : null}
 
-      {state.phase === "reward" ? <RewardScreen rewards={state.rewardOptions} onPick={pickReward} /> : null}
+      {state.phase === "reward" ? (
+        <RewardScreen rewards={state.rewardOptions} onPick={pickReward} />
+      ) : null}
 
-      {state.phase === "summary" ? <RunSummary stats={state.runStats} score={state.score} onRestart={restart} /> : null}
+      {state.phase === "summary" ? (
+        <RunSummary
+          stats={state.runStats}
+          score={state.score}
+          onRestart={restart}
+        />
+      ) : null}
 
       <section className="panel stats">
         <h3>Run stats</h3>
@@ -279,7 +313,9 @@ export function Game() {
           onHealTeam={healTeam}
           onGiveReward={giveReward}
           autoBattle={state.isAutoBattling}
-          setAutoBattle={(value) => setState((prev) => ({ ...prev, isAutoBattling: value }))}
+          setAutoBattle={(value) =>
+            setState((prev) => ({ ...prev, isAutoBattling: value }))
+          }
         />
       ) : null}
     </main>
@@ -292,9 +328,11 @@ function tickBattle(state: GameState): GameState {
   if (isTeamDead(state.enemyTeam)) {
     const rewardOptions = generateRewards(state.playerTeam, random);
     const enemiesDefeated =
-      state.runStats.enemiesDefeated + state.enemyTeam.filter((enemy) => enemy.hp === 0).length;
+      state.runStats.enemiesDefeated +
+      state.enemyTeam.filter((enemy) => enemy.hp === 0).length;
     const bossesDefeated =
-      state.runStats.bossesDefeated + (state.enemyTeam.some((enemy) => enemy.enemyType === "boss") ? 1 : 0);
+      state.runStats.bossesDefeated +
+      (state.enemyTeam.some((enemy) => enemy.enemyType === "boss") ? 1 : 0);
 
     const nextState: GameState = {
       ...state,
@@ -302,7 +340,10 @@ function tickBattle(state: GameState): GameState {
       rewardOptions,
       runStats: {
         waveReached: state.wave,
-        highestWaveReached: Math.max(state.runStats.highestWaveReached, state.wave),
+        highestWaveReached: Math.max(
+          state.runStats.highestWaveReached,
+          state.wave
+        ),
         enemiesDefeated,
         bossesDefeated,
       },
@@ -321,7 +362,10 @@ function tickBattle(state: GameState): GameState {
       runStats: {
         ...state.runStats,
         waveReached: state.wave,
-        highestWaveReached: Math.max(state.runStats.highestWaveReached, state.wave),
+        highestWaveReached: Math.max(
+          state.runStats.highestWaveReached,
+          state.wave
+        ),
       },
     };
     return {
