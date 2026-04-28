@@ -211,7 +211,7 @@ export function formatVara(raw, digits = 3) {
 
 export const PROGRAM_INFO = {
   programId: PROGRAM_ID,
-  network: deployment.network,
+  network: env.VITE_NETWORK || 'vara-mainnet',
   rpc: RPC,
   voucherBackend: VOUCHER_BACKEND_URL,
 };
