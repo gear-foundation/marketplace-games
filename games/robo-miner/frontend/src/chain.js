@@ -42,21 +42,25 @@ async function getProgram() {
 }
 
 // ---- Queries (free, no signing) --------------------------------------------
+//
+// sails-js builders need `.call()` to actually fire the query — without
+// it you just get the builder object back. We do that here so callers
+// can `await queryX()` and get the decoded value directly.
 
 export async function queryProfile(playerSs58) {
   const program = await getProgram();
-  return program.roboMinerProfile.profile(playerSs58);
+  return program.roboMinerProfile.profile(playerSs58).call();
 }
 
 export async function queryTotalPlayers() {
   const program = await getProgram();
-  const n = await program.roboMinerProfile.totalPlayers();
+  const n = await program.roboMinerProfile.totalPlayers().call();
   return Number(n);
 }
 
 export async function queryTopPlayers(limit = 10) {
   const program = await getProgram();
-  return program.roboMinerProfile.topPlayers(limit);
+  return program.roboMinerProfile.topPlayers(limit).call();
 }
 
 // ---- Voucher backend (Vara Arcade) -----------------------------------------
