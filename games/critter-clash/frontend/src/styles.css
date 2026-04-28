@@ -227,6 +227,89 @@ select {
 }
 .floating-damage-left { left: 39%; }
 .floating-damage-right { right: 39%; }
+
+.arrange-panel {
+  margin-bottom: 14px;
+  display: grid;
+  gap: 8px;
+}
+.arrange-lineup {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.arrange-slot {
+  display: grid;
+  gap: 6px;
+}
+.arrange-slot-label {
+  text-align: center;
+  color: #fbbf24;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.arrange-slot [draggable="true"] {
+  cursor: grab;
+}
+.arrange-slot [draggable="true"]:active {
+  cursor: grabbing;
+}
+.turn-queue {
+  position: static;
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(2, 6, 23, 0.78);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+.turn-queue-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+.turn-card {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  padding: 4px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: #cbd5e1;
+  flex: 0 0 58px;
+}
+.turn-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: #94a3b8;
+}
+.turn-card-speed-icon {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+}
+.turn-card > img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.turn-card-enemy > img {
+  transform: scaleX(-1);
+}
+.turn-card-player { background: rgba(14, 116, 144, 0.18); }
+.turn-card-enemy { background: rgba(127, 29, 29, 0.22); }
+.turn-card-active {
+  border-color: #facc15;
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35);
+}
+
 .battle-panel-focus {
   position: fixed;
   inset: 3vh 4vw;
@@ -270,6 +353,10 @@ select {
     gap: 8px;
   }
 
+
+  .arrange-lineup {
+    grid-template-columns: 1fr;
+  }
   .battle-lanes {
     display: grid;
     grid-template-columns: 1fr 1fr;

@@ -60,9 +60,14 @@ export type GameState = {
   playerTeam: Critter[];
   enemyTeam: Enemy[];
   starterOptions: Critter[];
-  selectedStarterIds: string[];
+  selectedStarterIds: Array<string | null>;
   rewardOptions: Reward[];
   battleLog: BattleEvent[];
+  roundTurnOrderIds: string[];
+  battleRound: number;
+  battleRoundSize: number;
+  roundPauseUntilMs: number | null;
+  deathPauseUntilMs: number | null;
   score: number;
   isAutoBattling: boolean;
   battleTurnDelayMs: number;

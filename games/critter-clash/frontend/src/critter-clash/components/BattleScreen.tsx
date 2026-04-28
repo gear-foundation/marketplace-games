@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimState } from "./CritterCard";
+import { getTurnQueue } from "../game/battle";
 import { BattleEvent, Critter, Enemy } from "../game/types";
 import { TeamLine } from "./TeamLine";
 
@@ -9,10 +10,12 @@ type Props = {
   playerTeam: Critter[];
   enemyTeam: Enemy[];
   battleLog: BattleEvent[];
+  roundTurnOrderIds: string[];
+  battleRound: number;
+  battleRoundSize: number;
+  isRoundPreparing: boolean;
   isAutoBattling: boolean;
   battleTurnDelayMs: number;
-  focusMode: boolean;
-  onToggleFocusMode: () => void;
   onToggleAutoBattle: (value: boolean) => void;
   onNextTurn: () => void;
   onChangeBattleSpeed: (value: number) => void;
@@ -40,10 +43,12 @@ export function BattleScreen({
   playerTeam,
   enemyTeam,
   battleLog,
+  roundTurnOrderIds,
+  battleRound,
+  battleRoundSize,
+  isRoundPreparing,
   isAutoBattling,
   battleTurnDelayMs,
-  focusMode,
-  onToggleFocusMode,
   onToggleAutoBattle,
   onNextTurn,
   onChangeBattleSpeed,
@@ -51,6 +56,16 @@ export function BattleScreen({
   const lastEvent = battleLog[battleLog.length - 1];
   const playerFront = playerTeam.find((p) => p.hp > 0)?.id;
   const enemyFront = enemyTeam.find((e) => e.hp > 0)?.id;
+  const turnQueue = getTurnQueue(playerTeam, enemyTeam);
+  const queueById = new Map(turnQueue.map((entry) => [entry.unitId, entry]));
+  const roundQueue = roundTurnOrderIds
+    .map((id) => queueById.get(id))
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  const currentTurnId = roundQueue[0]?.unitId ?? turnQueue[0]?.unitId;
+  const turnInRound =
+    battleRoundSize > 0
+      ? Math.min(battleRoundSize, Math.max(1, battleRoundSize - roundQueue.length + 1))
+      : 1;
 
   const [floatingDamages, setFloatingDamages] = useState<FloatingDamage[]>([]);
   const [animStates, setAnimStates] = useState<Record<string, AnimState>>({});
@@ -138,15 +153,12 @@ export function BattleScreen({
   );
 
   return (
-    <section className={`panel battle-panel${focusMode ? " battle-panel-focus" : ""}`}>
+    <section className="panel battle-panel">
       <div className="battle-head">
         <h2>Wave {wave}</h2>
         <span>{biome}</span>
       </div>
       <div className="actions-row battle-controls">
-        <button type="button" onClick={onToggleFocusMode}>
-          {focusMode ? "Close battle screen" : "Open battle screen"}
-        </button>
         <button type="button" onClick={() => onToggleAutoBattle(!isAutoBattling)}>
           {isAutoBattling ? "Pause auto battle" : "Start auto battle"}
         </button>
@@ -167,6 +179,26 @@ export function BattleScreen({
             ))}
           </select>
         </label>
+      </div>
+      <div className="turn-queue" aria-label="Turn order">
+        <strong>
+          Turn order - Round {battleRound}
+        </strong>
+        <div className="turn-queue-list">
+          {roundQueue.map((entry) => (
+            <article
+              key={`${entry.side}-${entry.unitId}-${entry.slot}`}
+              className={`turn-card turn-card-${entry.side}${entry.unitId === currentTurnId ? " turn-card-active" : ""}`}
+              title={`${entry.name} • SPD ${entry.speed}`}
+            >
+              <img src={`/critter-sprites/${entry.spriteKey}.webp`} alt={entry.name} />
+              <span className="turn-card-meta">
+                <img className="turn-card-speed-icon" src="/icons/speed.webp" alt="SPD" />
+                <span>{entry.speed}</span>
+              </span>
+            </article>
+          ))}
+        </div>
       </div>
       <div className="battle-lanes">
         <div className="floating-damage-layer" aria-hidden>

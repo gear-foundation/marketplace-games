@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { DragEvent, useEffect, useMemo, useState } from "react";
 import { BattleScreen } from "../critter-clash/components/BattleScreen";
 import { CritterCard } from "../critter-clash/components/CritterCard";
 import { DebugPanel } from "../critter-clash/components/DebugPanel";
 import { RewardScreen } from "../critter-clash/components/RewardScreen";
 import { RunSummary } from "../critter-clash/components/RunSummary";
 import { getBiomeForWave } from "../critter-clash/game/balance";
-import { isTeamDead, resolveBattleTurn } from "../critter-clash/game/battle";
+import { createRoundTurnOrderIds, isTeamDead, resolveBattleTurn } from "../critter-clash/game/battle";
 import { createStarterOptions } from "../critter-clash/game/critters";
 import { createEnemyTeam } from "../critter-clash/game/enemies";
 import { createSeededRandom } from "../critter-clash/game/random";
@@ -14,6 +14,9 @@ import { calculateScore } from "../critter-clash/game/scoring";
 import { GameState, Reward } from "../critter-clash/game/types";
 
 const random = createSeededRandom();
+const STARTER_SLOT_COUNT = 3;
+const ROUND_PREP_MS = 450;
+const DEATH_PAUSE_MS = 450;
 
 function createInitialState(): GameState {
   return {
@@ -23,9 +26,14 @@ function createInitialState(): GameState {
     playerTeam: [],
     enemyTeam: [],
     starterOptions: [],
-    selectedStarterIds: [],
+    selectedStarterIds: Array.from({ length: STARTER_SLOT_COUNT }, () => null),
     rewardOptions: [],
     battleLog: [],
+    roundTurnOrderIds: [],
+    battleRound: 1,
+    battleRoundSize: 0,
+    roundPauseUntilMs: null,
+    deathPauseUntilMs: null,
     score: 0,
     isAutoBattling: true,
     battleTurnDelayMs: 800,
@@ -40,7 +48,6 @@ function createInitialState(): GameState {
 
 export function Game() {
   const [state, setState] = useState<GameState>(createInitialState());
-  const [battleFocusMode, setBattleFocusMode] = useState(false);
   const debugMode = useMemo(
     () => new URLSearchParams(window.location.search).get("debug") === "true",
     []
@@ -57,19 +64,29 @@ export function Game() {
     return () => window.clearInterval(interval);
   }, [state.phase, state.isAutoBattling, state.battleTurnDelayMs]);
 
-  useEffect(() => {
-    if (state.phase !== "battle") {
-      setBattleFocusMode(false);
-    }
-  }, [state.phase]);
-
   const startRun = () => {
     setState((prev) => ({
       ...createInitialState(),
       phase: "choose_starter",
       starterOptions: createStarterOptions(random),
-      selectedStarterIds: [],
+      selectedStarterIds: Array.from({ length: STARTER_SLOT_COUNT }, () => null),
     }));
+  };
+
+  const reorderSelectedStarters = (from: number, to: number) => {
+    setState((prev) => {
+      if (prev.phase !== "choose_starter") return prev;
+      if (from === to) return prev;
+      if (from < 0 || to < 0) return prev;
+      if (
+        from >= prev.selectedStarterIds.length ||
+        to >= prev.selectedStarterIds.length
+      )
+        return prev;
+      const next = [...prev.selectedStarterIds];
+      [next[from], next[to]] = [next[to], next[from]];
+      return { ...prev, selectedStarterIds: next };
+    });
   };
 
   const toggleStarter = (starterId: string) => {
@@ -79,15 +96,18 @@ export function Game() {
       if (isSelected) {
         return {
           ...prev,
-          selectedStarterIds: prev.selectedStarterIds.filter(
-            (id) => id !== starterId
+          selectedStarterIds: prev.selectedStarterIds.map((id) =>
+            id === starterId ? null : id
           ),
         };
       }
-      if (prev.selectedStarterIds.length >= 3) return prev;
+      const firstEmptySlot = prev.selectedStarterIds.findIndex((id) => id === null);
+      if (firstEmptySlot === -1) return prev;
+      const next = [...prev.selectedStarterIds];
+      next[firstEmptySlot] = starterId;
       return {
         ...prev,
-        selectedStarterIds: [...prev.selectedStarterIds, starterId],
+        selectedStarterIds: next,
       };
     });
   };
@@ -95,9 +115,11 @@ export function Game() {
   const startStarterBattle = () => {
     setState((prev) => {
       if (prev.phase !== "choose_starter") return prev;
-      if (prev.selectedStarterIds.length !== 3) return prev;
+      const selectedStarterCount = prev.selectedStarterIds.filter(Boolean).length;
+      if (selectedStarterCount !== STARTER_SLOT_COUNT) return prev;
       const selectedTeam = prev.selectedStarterIds
         .map((starterId, index) => {
+          if (!starterId) return null;
           const starter = prev.starterOptions.find(
             (item) => item.id === starterId
           );
@@ -117,7 +139,12 @@ export function Game() {
         playerTeam: selectedTeam,
         enemyTeam,
         battleLog: [],
-        selectedStarterIds: [],
+        roundTurnOrderIds: [],
+        battleRound: 1,
+        battleRoundSize: 0,
+        roundPauseUntilMs: null,
+        deathPauseUntilMs: null,
+        selectedStarterIds: Array.from({ length: STARTER_SLOT_COUNT }, () => null),
       };
     });
   };
@@ -136,8 +163,30 @@ export function Game() {
         enemyTeam: createEnemyTeam(nextWave, biome, random),
         rewardOptions: [],
         battleLog: [],
+        roundTurnOrderIds: [],
+        battleRound: 1,
+        battleRoundSize: 0,
+        roundPauseUntilMs: null,
+        deathPauseUntilMs: null,
       };
     });
+  };
+
+  const selectedStarterSlots = state.selectedStarterIds
+    .map((selectedId) => state.starterOptions.find((pet) => pet.id === selectedId))
+    .map((pet) => pet ?? null);
+  const selectedStarterCount = state.selectedStarterIds.filter(Boolean).length;
+
+  const onLineupDragStart = (event: DragEvent<HTMLElement>, from: number) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(from));
+  };
+
+  const onLineupDrop = (event: DragEvent<HTMLElement>, to: number) => {
+    event.preventDefault();
+    const from = Number(event.dataTransfer.getData("text/plain"));
+    if (Number.isNaN(from)) return;
+    reorderSelectedStarters(from, to);
   };
 
   const restart = () => setState(createInitialState());
@@ -158,6 +207,11 @@ export function Game() {
         biome,
         enemyTeam: createEnemyTeam(wave, biome, random),
         battleLog: [],
+        roundTurnOrderIds: [],
+        battleRound: 1,
+        battleRoundSize: 0,
+        roundPauseUntilMs: null,
+        deathPauseUntilMs: null,
       };
     });
   };
@@ -215,36 +269,36 @@ export function Game() {
           <section>
             <h3>Your lineup</h3>
             <div className="selected-team-line">
-              {state.selectedStarterIds.map((selectedId) => {
-                const selectedPet = state.starterOptions.find(
-                  (pet) => pet.id === selectedId
-                );
-                if (!selectedPet) return null;
-                return (
-                  <CritterCard
-                    key={`selected-${selectedPet.id}`}
-                    critter={selectedPet}
-                    compact
-                    onClick={() => toggleStarter(selectedPet.id)}
-                  />
-                );
-              })}
-              {Array.from({
-                length: Math.max(0, 3 - state.selectedStarterIds.length),
-              }).map((_, index) => (
-                <article
-                  key={`slot-${index}`}
-                  className="critter-card compact slot-card"
+              {selectedStarterSlots.map((selectedPet, slot) => (
+                <div
+                  key={`slot-${slot}`}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => onLineupDrop(event, slot)}
                 >
-                  <div className="slot-placeholder">Open slot</div>
-                </article>
+                  {selectedPet ? (
+                    <div
+                      draggable
+                      onDragStart={(event) => onLineupDragStart(event, slot)}
+                    >
+                      <CritterCard
+                        critter={selectedPet}
+                        compact
+                        onClick={() => toggleStarter(selectedPet.id)}
+                      />
+                    </div>
+                  ) : (
+                    <article className="critter-card compact slot-card">
+                      <div className="slot-placeholder">Open slot</div>
+                    </article>
+                  )}
+                </div>
               ))}
             </div>
             <div className="actions-row">
               <button
                 className="start-clash-button"
                 type="button"
-                disabled={state.selectedStarterIds.length !== 3}
+                disabled={selectedStarterCount !== STARTER_SLOT_COUNT}
                 onClick={startStarterBattle}
               >
                 Start clash
@@ -271,10 +325,14 @@ export function Game() {
           playerTeam={state.playerTeam}
           enemyTeam={state.enemyTeam}
           battleLog={state.battleLog}
+          roundTurnOrderIds={state.roundTurnOrderIds}
+          battleRound={state.battleRound}
+          battleRoundSize={state.battleRoundSize}
+          isRoundPreparing={
+            state.roundPauseUntilMs !== null && Date.now() < state.roundPauseUntilMs
+          }
           isAutoBattling={state.isAutoBattling}
           battleTurnDelayMs={state.battleTurnDelayMs}
-          focusMode={battleFocusMode}
-          onToggleFocusMode={() => setBattleFocusMode((prev) => !prev)}
           onToggleAutoBattle={(value: boolean) =>
             setState((prev) => ({ ...prev, isAutoBattling: value }))
           }
@@ -338,6 +396,11 @@ function tickBattle(state: GameState): GameState {
       ...state,
       phase: "reward",
       rewardOptions,
+      roundTurnOrderIds: [],
+      battleRound: 1,
+      battleRoundSize: 0,
+      roundPauseUntilMs: null,
+      deathPauseUntilMs: null,
       runStats: {
         waveReached: state.wave,
         highestWaveReached: Math.max(
@@ -359,6 +422,11 @@ function tickBattle(state: GameState): GameState {
     const summaryState: GameState = {
       ...state,
       phase: "summary",
+      roundTurnOrderIds: [],
+      battleRound: 1,
+      battleRoundSize: 0,
+      roundPauseUntilMs: null,
+      deathPauseUntilMs: null,
       runStats: {
         ...state.runStats,
         waveReached: state.wave,
@@ -374,11 +442,57 @@ function tickBattle(state: GameState): GameState {
     };
   }
 
-  const turn = resolveBattleTurn(state.playerTeam, state.enemyTeam);
+  const aliveIds = new Set(
+    [...state.playerTeam, ...state.enemyTeam]
+      .filter((unit) => unit.hp > 0)
+      .map((unit) => unit.id)
+  );
+  let roundTurnOrderIds = state.roundTurnOrderIds.filter((id) => aliveIds.has(id));
+  let battleRound = state.battleRound;
+  let battleRoundSize = state.battleRoundSize;
+  let roundPauseUntilMs = state.roundPauseUntilMs;
+  if (roundTurnOrderIds.length === 0) {
+    roundTurnOrderIds = createRoundTurnOrderIds(state.playerTeam, state.enemyTeam);
+    if (state.battleLog.length > 0 || state.battleRoundSize > 0) {
+      battleRound += 1;
+      roundPauseUntilMs = Date.now() + ROUND_PREP_MS;
+    }
+    battleRoundSize = roundTurnOrderIds.length;
+  }
+  if (roundPauseUntilMs !== null && Date.now() < roundPauseUntilMs) {
+    return {
+      ...state,
+      roundTurnOrderIds,
+      battleRound,
+      battleRoundSize,
+      roundPauseUntilMs,
+    };
+  }
+  roundPauseUntilMs = null;
+  if (state.deathPauseUntilMs !== null && Date.now() < state.deathPauseUntilMs) {
+    return state;
+  }
+
+  const attackerId = roundTurnOrderIds[0];
+  const turn = resolveBattleTurn(state.playerTeam, state.enemyTeam, attackerId);
+  const aliveAfterTurnIds = new Set(
+    [...turn.playerTeam, ...turn.enemyTeam]
+      .filter((unit) => unit.hp > 0)
+      .map((unit) => unit.id)
+  );
+  const nextRoundTurnOrderIds = roundTurnOrderIds
+    .slice(1)
+    .filter((id) => aliveAfterTurnIds.has(id));
+
   return {
     ...state,
     playerTeam: turn.playerTeam,
     enemyTeam: turn.enemyTeam,
+    roundTurnOrderIds: nextRoundTurnOrderIds,
+    battleRound,
+    battleRoundSize,
+    roundPauseUntilMs,
+    deathPauseUntilMs: turn.event.targetDied ? Date.now() + DEATH_PAUSE_MS : null,
     battleLog: [...state.battleLog.slice(-6), turn.event],
   };
 }
