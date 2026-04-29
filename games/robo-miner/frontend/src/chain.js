@@ -14,6 +14,7 @@
 import { GearApi } from '@gear-js/api';
 import { web3FromAddress } from '@polkadot/extension-dapp';
 import { SailsProgram } from './contracts/lib.ts';
+import deployment from '../../contract/deployment.json' assert { type: 'json' };
 
 const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
 const RPC = env.VITE_NODE_ADDRESS || 'wss://rpc.vara.network';

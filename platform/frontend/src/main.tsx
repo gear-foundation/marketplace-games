@@ -143,7 +143,7 @@ const FALLBACK_GAMES: GameCard[] = [
     id: "robo-miner",
     title: "Robo Miner",
     description: "Mine resources, build your robot, and compete for the highest score on-chain.",
-    url: "https://robo-miner-vara.up.railway.app/",
+    url: "https://robo-miner-production.up.railway.app/",
     status: "live",
     image: "",
     categories: ["arcade"],
