@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { GaslessProgram } from './entities/gasless-program.entity';
 import { Voucher } from './entities/voucher.entity';
 import { ArcadeGame } from './entities/arcade-game.entity';
+import { ArcadeGameVote } from './entities/arcade-game-vote.entity';
 
 config();
 
@@ -19,7 +20,7 @@ export default new DataSource({
   username: required('DB_USER'),
   password: required('DB_PASSWORD'),
   database: required('DB_NAME'),
-  entities: [GaslessProgram, Voucher, ArcadeGame],
+  entities: [GaslessProgram, Voucher, ArcadeGame, ArcadeGameVote],
   migrations: ['dist/src/migrations/*.js'],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
