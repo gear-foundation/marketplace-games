@@ -168,11 +168,20 @@ async function signAndSend(tx, ss58) {
   return { msgId, blockHash, voucherId };
 }
 
-/// Submit a finished run. Score = money + (50_000 if diamond).
+/// Submit a FINAL run. Score = money + (50_000 if diamond). Use this on
+/// "End Run" or on diamond win — these increment runs_completed on chain.
 /// Player pays no value; gas comes from the voucher.
 export async function submitRun(score, ss58) {
   const program = await getProgram();
   const tx = program.roboMinerProfile.submitRun(BigInt(score));
+  return signAndSend(tx, ss58);
+}
+
+/// Submit a mid-run CHECKPOINT (Continue after death). Bumps `checkpoints`
+/// only, never `runs_completed`. Same voucher path as submitRun.
+export async function submitCheckpoint(score, ss58) {
+  const program = await getProgram();
+  const tx = program.roboMinerProfile.submitCheckpoint(BigInt(score));
   return signAndSend(tx, ss58);
 }
 
