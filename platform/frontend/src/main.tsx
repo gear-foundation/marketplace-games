@@ -67,7 +67,7 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
     case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
     case "2048":            return "/2048image.png";
     case "deep-sea-feast":  return "/deep_sea_feast.png";
-    case "robo-miner":      return "";
+    case "robo-miner":      return "/robo_miner_back.jpg";
     default:                return fallback || "";
   }
 }
@@ -145,7 +145,7 @@ const FALLBACK_GAMES: GameCard[] = [
     description: "Mine resources, build your robot, and compete for the highest score on-chain.",
     url: "https://robo-miner-production.up.railway.app/",
     status: "live",
-    image: "",
+    image: "/robo_miner_back.jpg",
     categories: ["arcade"],
   },
 ];
