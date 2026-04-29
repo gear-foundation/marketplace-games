@@ -88,5 +88,23 @@
       "duration": 86400,
       "oneTime": false
     }
+  },
+  {
+    "slug": "deep-sea-feast",
+    "title": "Deep Sea Feast",
+    "description": "An underwater survival arcade game where you grow through fish tiers, avoid predators, and submit your best run on-chain.",
+    "frontendUrl": "${DEEP_SEA_FEAST_URL:https://deep-sea-feast-vara.up.railway.app/}",
+    "contractAddress": "0xbf54fe438121510a6e435686eb255af9106d5e74e5c0593142a7a9de29dad78f",
+    "imageUrl": "${DEEP_SEA_FEAST_IMAGE_URL:/deep_sea_feast.png}",
+    "tags": ["Arcade", "Leaderboard", "Gas voucher"],
+    "status": "live",
+    "sortOrder": 50,
+    "gasless": {
+      "enabled": true,
+      "name": "DeepSeaFeast",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
   }
 ]

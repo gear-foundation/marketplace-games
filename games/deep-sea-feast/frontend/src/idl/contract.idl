@@ -1,0 +1,28 @@
+type SubmitScoreReply = struct {
+  best_score: u32,
+  improved: bool,
+};
+
+type LeaderboardEntry = struct {
+  player: actor_id,
+  score: u32,
+};
+
+constructor {
+  Create : ();
+};
+
+service Game {
+  SubmitScore : (score: u32) -> SubmitScoreReply;
+  query Leaderboard : (limit: u32) -> vec LeaderboardEntry;
+  query PlayerBestScore : (player: actor_id) -> u32;
+  query PlayerRank : (player: actor_id) -> opt u32;
+  query ScoresCount : () -> u32;
+
+  events {
+    BestScoreUpdated: struct {
+      player: actor_id,
+      score: u32,
+    };
+  }
+};
