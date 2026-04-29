@@ -198,6 +198,18 @@ img { display: block; }
   line-height: 1.6;
 }
 
+.hero-sub__highlight {
+  color: var(--text);
+  font-size: clamp(17px, 2.2vw, 21px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hero-sub__secondary {
+  display: inline-block;
+  margin-top: 6px;
+}
+
 .hero-stats {
   display: flex;
   align-items: center;

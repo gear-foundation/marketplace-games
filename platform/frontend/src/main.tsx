@@ -55,7 +55,10 @@ const FILTER_TABS = [
 
 const APP_NAME = "Vara Arcade";
 const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
-const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
+const DEFAULT_BACKEND_URL = "https://arcade-vara-production.up.railway.app";
+const BACKEND_URL = (
+  import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? "/api" : DEFAULT_BACKEND_URL)
+).replace(/\/+$/, "");
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
@@ -519,7 +522,9 @@ function PlatformApp() {
             Play.<span className="hero-accent"> Compete.</span> Win.
           </h1>
           <p className="hero-sub">
-            On-chain games on Vara Network. Free to play, daily gas vouchers.
+            <span className="hero-sub__highlight">Free to play, daily gas vouchers.</span>
+            <br />
+            <span className="hero-sub__secondary">On-chain games on Vara Network.</span>
           </p>
           <div className="hero-stats">
             <div className="stat">
