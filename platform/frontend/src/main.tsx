@@ -307,8 +307,8 @@ function CategoryPill({ id, active, onClick }: { id: string; active: boolean; on
   );
 }
 
-function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
-  count: number; voted: boolean; disabled: boolean; walletConnected: boolean; onVote: (e: React.MouseEvent) => void;
+function VoteBtn({ count, voted, disabled, canVote, onVote }: {
+  count: number; voted: boolean; disabled: boolean; canVote: boolean; onVote: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
@@ -316,8 +316,8 @@ function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
       disabled={disabled}
       onClick={onVote}
       title={
-        !walletConnected
-          ? "Connect wallet to vote"
+        !canVote
+          ? "Voting is unavailable right now"
           : disabled
             ? "Vote request in progress"
             : voted
@@ -331,11 +331,11 @@ function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
   );
 }
 
-function GameCardEl({ game, voteCount, voted, walletConnected, votePending = false, onVote, featured }: {
+function GameCardEl({ game, voteCount, voted, canVote, votePending = false, onVote, featured }: {
   game: GameCard;
   voteCount: number;
   voted: boolean;
-  walletConnected: boolean;
+  canVote: boolean;
   votePending?: boolean;
   onVote: () => void;
   featured: boolean;
@@ -385,8 +385,8 @@ function GameCardEl({ game, voteCount, voted, walletConnected, votePending = fal
           <VoteBtn
             count={voteCount}
             voted={voted}
-            disabled={!walletConnected || votePending}
-            walletConnected={walletConnected}
+            disabled={!canVote || votePending}
+            canVote={canVote}
             onVote={(e) => { e.stopPropagation(); onVote(); }}
           />
           {isLive && game.url && (
@@ -416,6 +416,8 @@ function PlatformApp() {
   const [pendingVotes, setPendingVotes] = useState<Set<string>>(new Set());
   const accountIdentity = account?.decodedAddress || account?.address || "";
   const votesEnabled = Boolean(BACKEND_URL);
+  const walletConnected = Boolean(accountIdentity);
+  const canVote = votesEnabled && walletConnected;
 
   useEffect(() => {
     let cancelled = false;
@@ -433,7 +435,7 @@ function PlatformApp() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchVotes(allGameIds, accountIdentity || undefined)
+    fetchVotes(allGameIds, canVote ? accountIdentity : undefined)
       .then((snapshot) => {
         if (cancelled) return;
         setVotes(makeVoteCounts(allGameIds, snapshot.counts));
@@ -445,10 +447,10 @@ function PlatformApp() {
         setMyVotes(new Set());
       });
     return () => { cancelled = true; };
-  }, [accountIdentity, allGameIds]);
+  }, [accountIdentity, allGameIds, canVote]);
 
   async function handleVote(gameId: string) {
-    if (!votesEnabled || !accountIdentity || pendingVotes.has(gameId)) return;
+    if (!canVote || pendingVotes.has(gameId)) return;
     const wasVoted = myVotes.has(gameId);
     setPendingVotes((prev) => {
       const next = new Set(prev);
@@ -558,7 +560,7 @@ function PlatformApp() {
             game={game}
             voteCount={votes[game.id] ?? 0}
             voted={myVotes.has(game.id)}
-            walletConnected={!!accountIdentity && votesEnabled}
+            canVote={canVote}
             votePending={pendingVotes.has(game.id)}
             onVote={() => handleVote(game.id)}
             featured={i === 0 && activeCategory === "all"}
@@ -576,9 +578,15 @@ function PlatformApp() {
         </div>
       </main>
 
-      {!accountIdentity && votesEnabled && (
+      {!votesEnabled && (
         <div className="vote-nudge">
-          <span>Connect your Vara wallet in the header to vote for upcoming games.</span>
+          <span>Voting is temporarily unavailable in this frontend environment.</span>
+        </div>
+      )}
+
+      {votesEnabled && !walletConnected && (
+        <div className="vote-nudge">
+          <span>Connect your wallet to vote. Your vote will be linked to that wallet address.</span>
         </div>
       )}
     </div>
