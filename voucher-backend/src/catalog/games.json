@@ -90,18 +90,18 @@
     }
   },
   {
-    "slug": "robo-miner",
-    "title": "Robo Miner",
-    "description": "A side-scrolling mining roguelike where you dig deeper, collect ore, dodge lava and rocks, and submit your best run on-chain.",
-    "frontendUrl": "${ROBO_MINER_URL:https://robo-miner.up.railway.app}",
-    "contractAddress": "0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1",
-    "imageUrl": "${ROBO_MINER_IMAGE_URL:/robo-miner.png}",
-    "tags": ["Mining", "Roguelike", "Gas voucher", "Mainnet"],
+    "slug": "deep-sea-feast",
+    "title": "Deep Sea Feast",
+    "description": "An underwater survival arcade game where you grow through fish tiers, avoid predators, and submit your best run on-chain.",
+    "frontendUrl": "${DEEP_SEA_FEAST_URL:https://deep-sea-feast-vara.up.railway.app/}",
+    "contractAddress": "0xbf54fe438121510a6e435686eb255af9106d5e74e5c0593142a7a9de29dad78f",
+    "imageUrl": "${DEEP_SEA_FEAST_IMAGE_URL:/deep_sea_feast.png}",
+    "tags": ["Arcade", "Leaderboard", "Gas voucher"],
     "status": "live",
     "sortOrder": 50,
     "gasless": {
       "enabled": true,
-      "name": "RoboMiner",
+      "name": "DeepSeaFeast",
       "weight": 1,
       "duration": 86400,
       "oneTime": false

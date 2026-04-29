@@ -56,6 +56,7 @@ const INITIAL_VOTES: Record<string, number> = {
   "lumberjack": 1203,
   "nebula-blaster": 0,
   "2048": 0,
+  "deep-sea-feast": 0,
 };
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
@@ -63,8 +64,9 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
     case "skybound-jump":   return "/monkey_run_16x9.webp";
     case "lumberjack":      return "/lumberjack_16x9.webp";
     case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
-    case "2048":          return "/2048image.png";
-    default:              return fallback || "";
+    case "2048":            return "/2048image.png";
+    case "deep-sea-feast":  return "/deep_sea_feast.png";
+    default:                return fallback || "";
   }
 }
 
@@ -124,6 +126,15 @@ const FALLBACK_GAMES: GameCard[] = [
     status: "live",
     image: "/2048image.png",
     categories: ["brain"],
+  },
+  {
+    id: "deep-sea-feast",
+    title: "Deep Sea Feast",
+    description: "An underwater survival arcade game where you grow through fish tiers, avoid predators, and submit your best run on-chain.",
+    url: "https://deep-sea-feast-vara.up.railway.app/",
+    status: "live",
+    image: "/deep_sea_feast.png",
+    categories: ["arcade"],
   },
 ];
 
