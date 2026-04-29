@@ -137,6 +137,8 @@ const FALLBACK_GAMES: GameCard[] = [
     url: "https://deep-sea-feast-vara.up.railway.app/",
     status: "live",
     image: "/deep_sea_feast.png",
+    categories: ["arcade"],
+  },
   {
     id: "robo-miner",
     title: "Robo Miner",
@@ -144,8 +146,6 @@ const FALLBACK_GAMES: GameCard[] = [
     url: "https://robo-miner-vara.up.railway.app/",
     status: "live",
     image: "",
-    categories: ["arcade"],
-  },
     categories: ["arcade"],
   },
 ];
