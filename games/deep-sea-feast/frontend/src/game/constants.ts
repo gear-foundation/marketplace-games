@@ -17,7 +17,7 @@ export const PLAYER_START_SATURATION = 50;
 export type GameStartPreset = "default" | "test-size-5"| "test-size-6" | "test-size-7";
 
 // Switch this preset while balancing or checking late-game mechanics locally.
-export const GAME_START_PRESET: GameStartPreset = "test-size-5";
+export const GAME_START_PRESET: GameStartPreset = "default";
 
 function resolveGameStartConfig(preset: GameStartPreset) {
   switch (preset) {
