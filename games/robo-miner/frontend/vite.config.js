@@ -10,5 +10,9 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
+    assetsInlineLimit: 4096,
+  },
+  json: {
+    stringify: true,
   },
 });
