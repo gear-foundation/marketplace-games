@@ -1,16 +1,22 @@
 {
   "network": "vara-mainnet",
   "rpc": "wss://rpc.vara.network",
-  "deployedAt": "2026-04-28T11:08:00Z",
-  "blockNumber": 32501999,
+  "deployedAt": "2026-04-29T11:55:00Z",
+  "blockNumber": 32531327,
   "deployer": "kGkbrEpV6JrGuVh7jRzMJXJUds7Vewy5mBFinEGAD63xa7mSb",
-  "programId": "0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1",
-  "codeId": "0xfc4464199c198dd2b03c98709f8a191ab8a95f2fc62c6dd875079ed0491097fc",
-  "deployTx": "0x18ffb7ff2f9f48e8e61ef55c0e8deab4f288cae34de5c608f8bd2a660b6f84b0",
+  "programId": "0xacc90a11efbb848c75cfd166b00c4bf3d702fd767f0930e9d2840bf091614f1b",
+  "codeId": "0xe05ef53def7e9f640c87c4c47ded1d19ebb7e48241411c0a29085d342703ae1d",
+  "deployTx": "0x806b7c0fdc6f298aaaabb1961f85aebebb6a0b163177dda8fee20d9b65af0681",
+  "blockHash": "0x8e35f978480b4b5bdad0ecc8cfe1fa4ef046c679aa09e33b2e81038aefa113ad",
   "idlPath": "contract/robo-miner-profile/target/wasm32-gear/release/robo_miner_profile.idl",
   "wasmPath": "contract/robo-miner-profile/target/wasm32-gear/release/robo_miner_profile.opt.wasm",
-  "interface": "v3 - voucher-only design, no value transfers, no pay_revive. Just submit_run + queries.",
+  "interface": "v4 — added submit_checkpoint + checkpoints counter; submit_run is now final-only.",
   "previousVersions": [
+    {
+      "programId": "0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1",
+      "deployedAt": "2026-04-28T11:08:00Z",
+      "note": "v3 — voucher-only design, no value transfers, no pay_revive. Just submit_run + queries."
+    },
     {
       "programId": "0x723aadfb0e4ac581ab8f95a80adf1c3556521906011f58df68e958e79be8c3a0",
       "deployedAt": "2026-04-28T10:50:00Z",
