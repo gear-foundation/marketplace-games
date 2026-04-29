@@ -12,8 +12,8 @@ ENV VITE_PROGRAM_ID=$VITE_PROGRAM_ID
 ENV VITE_VOUCHER_BACKEND_URL=$VITE_VOUCHER_BACKEND_URL
 ENV VITE_ALLOWED_HOSTS=$VITE_ALLOWED_HOSTS
 
-COPY package*.json ./
-RUN npm ci
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
 COPY . .
 RUN npm run build
