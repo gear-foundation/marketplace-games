@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useApi } from "@gear-js/react-hooks";
 import { Wallet } from "@gear-js/wallet-connect";
 import type { Sails } from "sails-js";
@@ -109,6 +109,7 @@ export function DeepSeaChainPanel({
   const [chainStatusMessage, setChainStatusMessage] = useState("");
   const [sailsClient, setSailsClient] = useState<Sails | null>(null);
   const [submittedSessionId, setSubmittedSessionId] = useState<number | null>(null);
+  const autoSubmittedSessionIdRef = useRef<number | null>(null);
   const [playAccess, setPlayAccess] = useState<DeepSeaPlayAccess>({
     canPlay: false,
     title: "Loading wallet",
@@ -157,6 +158,7 @@ export function DeepSeaChainPanel({
   }, [isSubmittedForCurrentSession, onSessionSubmitStateChange]);
 
   useEffect(() => {
+    autoSubmittedSessionIdRef.current = null;
     setSubmittedSessionId(null);
     setSubmitStatus("idle");
     setSubmitMessage("");
@@ -543,6 +545,23 @@ export function DeepSeaChainPanel({
     sailsClient,
     submitDisabledReason,
     voucherBackendUrl,
+  ]);
+
+  useEffect(() => {
+    if (status !== "over" || finalRunScore <= 0) return;
+    if (autoSubmittedSessionIdRef.current === gameSessionId) return;
+    if (submitDisabledReason || submitStatus === "pending" || isSubmittedForCurrentSession) return;
+
+    autoSubmittedSessionIdRef.current = gameSessionId;
+    void submitScoreOnChain();
+  }, [
+    finalRunScore,
+    gameSessionId,
+    isSubmittedForCurrentSession,
+    status,
+    submitDisabledReason,
+    submitScoreOnChain,
+    submitStatus,
   ]);
 
   const buttonLabel =
