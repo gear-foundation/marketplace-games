@@ -7,10 +7,10 @@ import {
   makeCanvasGraphicsAdapter,
 } from '../render/robot.js';
 import { openWalletModal } from '../walletModal.js';
-import { subscribe as subscribeWallet, getState as getWalletState, shortAddress, KNOWN_WALLETS } from '../wallet.js';
+import { subscribe as subscribeWallet, getState as getWalletState, shortAddress, KNOWN_WALLETS, toVaraAddress } from '../wallet.js';
 import {
   queryVoucherFor, ensureVoucher, getVoucherState,
-  getVaraBalanceRaw, formatVara, PROGRAM_INFO,
+  getVaraBalanceRaw, formatVara, queryTopPlayers, PROGRAM_INFO,
 } from '../chain.js';
 
 // Title / splash scene. Shows the game logo, the robot, and "Start
@@ -137,6 +137,7 @@ export default class MenuScene extends Phaser.Scene {
     this.createWalletDOM();
     this.createCustomizerDOM();
     this.createSoundButtonDOM();
+    this.createLeaderboardDOM();
     this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
 
     // Resize handler: rebuild layout.
@@ -509,11 +510,12 @@ export default class MenuScene extends Phaser.Scene {
     this.destroyBubbleDOM();
     this.destroyCustomizerDOM();
     this.destroySoundButtonDOM();
+    this.destroyLeaderboardDOM();
     this.destroyTunnelOverlay();
   }
 
   cleanupMenuDOM() {
-    for (const id of ['menu-bubble', 'menu-start', 'menu-wallet', 'menu-generate', 'menu-customizer', 'menu-customizer-modal', 'menu-sound', 'menu-hatpicker', 'menu-tunnel-overlay', 'wallet-modal', 'voucher-modal', 'fog-overlay', 'hud', 'inv', 'bubble', 'flash', 'shop']) {
+    for (const id of ['menu-bubble', 'menu-start', 'menu-wallet', 'menu-generate', 'menu-customizer', 'menu-customizer-modal', 'menu-sound', 'menu-leaderboard', 'menu-leaderboard-modal', 'menu-hatpicker', 'menu-tunnel-overlay', 'wallet-modal', 'voucher-modal', 'fog-overlay', 'hud', 'inv', 'bubble', 'flash', 'shop']) {
       document.getElementById(id)?.remove();
     }
   }
@@ -1375,6 +1377,135 @@ export default class MenuScene extends Phaser.Scene {
 
   destroySoundButtonDOM() {
     if (this.soundBtnEl) { this.soundBtnEl.remove(); this.soundBtnEl = null; }
+  }
+
+  // 🏆 button + modal — fetches the on-chain top-10 via
+  // queryTopPlayers(), shows rank / address / high score / runs.
+  createLeaderboardDOM() {
+    if (this.leaderBtnEl) return;
+    const btn = document.createElement('button');
+    btn.id = 'menu-leaderboard';
+    btn.title = 'Leaderboard (on-chain top players)';
+    btn.style.cssText = `
+      position: fixed; top: 16px; left: 136px; z-index: 12;
+      background:#ffffff; color:#222;
+      border:3px solid #000; border-radius:12px;
+      width:52px; height:52px; padding:0;
+      font-family:'Courier New', monospace; font-size:24px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+    `;
+    btn.textContent = '🏆';
+    btn.onclick = () => this.openLeaderboardModal();
+    document.body.appendChild(btn);
+    this.leaderBtnEl = btn;
+  }
+
+  destroyLeaderboardDOM() {
+    if (this.leaderBtnEl) { this.leaderBtnEl.remove(); this.leaderBtnEl = null; }
+    document.getElementById('menu-leaderboard-modal')?.remove();
+  }
+
+  async openLeaderboardModal() {
+    let d = document.getElementById('menu-leaderboard-modal');
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'menu-leaderboard-modal';
+      d.style.cssText = `
+        position: fixed; inset: 0; z-index: 30; display: flex;
+        align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.55);
+        font-family: 'Courier New', monospace; color: #f1e6cf;
+      `;
+      document.body.appendChild(d);
+      d.addEventListener('click', (ev) => {
+        if (ev.target === d) d.style.display = 'none';
+      });
+    }
+    d.style.display = 'flex';
+    // Loading shell first; we replace the inner list once the chain
+    // query resolves.
+    d.innerHTML = `
+      <div style="background:#1d140b; border:4px solid #4b2e15;
+        border-radius:14px; padding:22px 26px; min-width:480px;
+        max-width:96vw; box-shadow:0 8px 30px rgba(0,0,0,0.6);">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+          margin-bottom:14px;border-bottom:2px solid #4b2e15;padding-bottom:10px">
+          <div style="font-size:20px;font-weight:bold;color:#ffd66b;letter-spacing:1px">
+            🏆 Top miners
+          </div>
+          <button id="leader-close" style="font-family:inherit;background:#3a2614;
+            color:#f1e6cf;border:2px solid #4b2e15;border-radius:8px;
+            padding:6px 14px;font-weight:bold;cursor:pointer">Close</button>
+        </div>
+        <div id="leader-body" style="font-size:13px;line-height:1.55">
+          <div style="opacity:.8;text-align:center;padding:20px">
+            ⛓ Reading chain…
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:11px;opacity:.55;text-align:center">
+          on-chain · ${PROGRAM_INFO.programId.slice(0, 10)}…${PROGRAM_INFO.programId.slice(-6)}
+        </div>
+      </div>
+    `;
+    d.querySelector('#leader-close').onclick = () => { d.style.display = 'none'; };
+    let rows = [];
+    try {
+      rows = await queryTopPlayers(10);
+    } catch (err) {
+      const body = d.querySelector('#leader-body');
+      if (body) {
+        body.innerHTML = `<div style="opacity:.85;text-align:center;padding:14px;color:#f8b0b0">
+          Couldn't read leaderboard: ${(err && err.message) || 'chain error'}
+        </div>`;
+      }
+      return;
+    }
+    const myAddr = (getWalletState().address || '').toLowerCase();
+    const body = d.querySelector('#leader-body');
+    if (!body) return;
+    if (!rows || rows.length === 0) {
+      body.innerHTML = `<div style="opacity:.85;text-align:center;padding:14px">
+        No runs submitted yet. Be the first to dig!
+      </div>`;
+      return;
+    }
+    // Each row: { player: hex AccountId, high_score: bigint, runs_completed: bigint }
+    // The contract returns the raw 32-byte public key as 0x… hex; the
+    // wallet stores the player as Vara-prefix-137 ss58. Re-encode here
+    // so addresses display as kG… and the "you" highlight matches.
+    const html = rows.map((r, idx) => {
+      const addr = toVaraAddress(String(r.player || ''));
+      const isMe = addr.toLowerCase() === myAddr;
+      const score = String(r.high_score ?? r.highScore ?? 0);
+      const runs  = String(r.runs_completed ?? r.runsCompleted ?? 0);
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+      const bg = isMe ? '#3a2614' : 'transparent';
+      return `
+        <div style="display:flex;gap:10px;padding:6px 8px;border-radius:6px;
+          background:${bg};align-items:center">
+          <div style="width:38px;text-align:center;font-size:16px">${medal}</div>
+          <div style="flex:1;font-family:monospace;opacity:${isMe ? 1 : 0.9}">
+            ${shortAddress(addr)}${isMe ? ' <span style="color:#ffd66b">· you</span>' : ''}
+          </div>
+          <div style="width:90px;text-align:right;color:#ffd66b;font-weight:bold">
+            ${score}
+          </div>
+          <div style="width:60px;text-align:right;opacity:.65;font-size:11px">
+            ${runs} run${runs === '1' ? '' : 's'}
+          </div>
+        </div>
+      `;
+    }).join('');
+    body.innerHTML = `
+      <div style="display:flex;gap:10px;padding:0 8px 4px 8px;font-size:10px;
+        opacity:.55;text-transform:uppercase;letter-spacing:1px">
+        <div style="width:38px;text-align:center">#</div>
+        <div style="flex:1">Player</div>
+        <div style="width:90px;text-align:right">Best</div>
+        <div style="width:60px;text-align:right">Runs</div>
+      </div>
+      ${html}
+    `;
   }
 
   // Called when the fall animation starts so the panel doesn't sit

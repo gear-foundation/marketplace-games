@@ -11,7 +11,11 @@ import {
   KNOWN_WALLETS as WALLET_METAS,
   getState as getWalletState,
 } from '../wallet.js';
-import { submitRun as chainSubmitRun, PROGRAM_INFO as CHAIN_INFO } from '../chain.js';
+import {
+  submitRun as chainSubmitRun,
+  submitCheckpoint as chainSubmitCheckpoint,
+  PROGRAM_INFO as CHAIN_INFO,
+} from '../chain.js';
 
 // Mapping from block type → texture key (files live in public/assets/tiles/).
 // Missing files fall through to the procedural Graphics renderer.
@@ -1768,9 +1772,40 @@ export default class GameScene extends Phaser.Scene {
   // Performs the actual respawn: fuel/hp top-up, teleport to shop, drop
   // cargo + diamond. Called either by the dialog button or the ENTER /
   // SPACE key while the dialog is open.
-  doRespawn() {
+  //
+  // Each Continue submits a CHECKPOINT on-chain (gas via voucher → free
+  // for the player). Checkpoints bump `profile.checkpoints`, may improve
+  // `high_score`, but DO NOT touch `runs_completed` — that one moves only
+  // on a real End Run / Win submitRun. So the leaderboard "runs" column
+  // counts attempts, not lives.
+  async doRespawn() {
     if (!this.awaitingRespawn) return;
+    if (this._submitting) return;
+
     const r = this.robot;
+    const score = r.money;
+    const wallet = getWalletState();
+    const statusEl = document.getElementById('respawn-status');
+
+    // No wallet → fall back to a pure-local respawn (same as before).
+    // We surface a flash so the player knows their checkpoint isn't
+    // recorded on-chain, but we don't block the run.
+    if (wallet.address) {
+      this._submitting = true;
+      if (statusEl) statusEl.textContent = '⏳ Signing checkpoint…';
+      this.setRespawnButtonsEnabled(false);
+      try {
+        const { msgId } = await chainSubmitCheckpoint(score, wallet.address);
+        if (statusEl) statusEl.textContent = `✓ Checkpoint (${msgId.slice(0, 10)}…)`;
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `✗ ${err?.message || 'submit failed'}`;
+        this.setRespawnButtonsEnabled(true);
+        this._submitting = false;
+        return; // stay in dialog; player can pick again
+      }
+      this._submitting = false;
+    }
+
     r.fuel = Math.max(r.fuel, r.maxFuel * 0.3);
     r.hp = r.maxHp;
     r.cargo = {};
@@ -1828,7 +1863,7 @@ export default class GameScene extends Phaser.Scene {
               border:3px solid #0e2e1e; border-radius:10px;
               padding:12px 24px; font-weight:bold; font-size:15px;
               letter-spacing:1px; cursor:pointer;">
-              🔄 Continue (free) — lose cargo, keep money
+              🔄 Continue — checkpoint on-chain, keep money
             </button>
             <button id="respawn-end-btn" style="
               font-family:inherit; background:#c9a06a; color:#241608;
@@ -2030,10 +2065,12 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // Regenerate the world and reset the run. Called from the win
-  // dialog. Uses Phaser's scene.restart() — that re-runs preload +
-  // create, which builds a fresh world via generateWorld() and a
-  // fresh robot via createRobot().
+  // Hand control back to the title screen. Called from the win / run-
+  // ended dialog. We bounce through the Menu scene rather than calling
+  // scene.restart() so the player sees the title, can change wallet /
+  // re-issue voucher / pick a hat, and presses START to spawn a fresh
+  // run. Pressing START in Menu boots GameScene which always builds a
+  // fresh world, so no extra reset state is required here.
   startNewRun() {
     const d = document.getElementById('win-dialog');
     if (d) d.style.display = 'none';
@@ -2042,7 +2079,7 @@ export default class GameScene extends Phaser.Scene {
       this._winKeyHandler = null;
     }
     this.awaitingRespawn = false;
-    this.scene.restart();
+    this.scene.start('Menu');
   }
 
   handleRobotPointerDown(pointer) {
