@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { AccountProvider, ApiProvider, useAccount } from "@gear-js/react-hooks";
+import { Wallet } from "@gear-js/wallet-connect";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "@gear-js/ui/dist/index.css";
+import "@gear-js/vara-ui/dist/style.css";
+import "@gear-js/wallet-connect/dist/style.css";
 import "./styles.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,16 +54,8 @@ const FILTER_TABS = [
 // ─── Static Data ──────────────────────────────────────────────────────────────
 
 const APP_NAME = "Vara Arcade";
+const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
-
-const INITIAL_VOTES: Record<string, number> = {
-  "skybound-jump": 847,
-  "lumberjack": 1203,
-  "nebula-blaster": 0,
-  "2048": 0,
-  "deep-sea-feast": 0,
-  "robo-miner": 0,
-};
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
@@ -217,6 +214,66 @@ async function fetchGames(): Promise<GameCard[]> {
   return games.length > 0 ? games : FALLBACK_GAMES;
 }
 
+function makeVoteCounts(slugs: string[], source?: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(slugs.map((slug) => [slug, source?.[slug] ?? 0]));
+}
+
+async function fetchVotes(
+  slugs: string[],
+  account?: string,
+): Promise<{ counts: Record<string, number>; liked: string[] }> {
+  const normalizedSlugs = Array.from(
+    new Set(slugs.map((slug) => slug.trim()).filter(Boolean)),
+  );
+
+  if (!BACKEND_URL || normalizedSlugs.length === 0) {
+    return { counts: makeVoteCounts(normalizedSlugs), liked: [] };
+  }
+
+  const params = new URLSearchParams();
+  params.set("slugs", normalizedSlugs.join(","));
+  if (account) params.set("account", account);
+
+  const res = await fetch(`${BACKEND_URL}/games/votes?${params.toString()}`);
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+
+  const data = (await res.json()) as {
+    counts?: unknown;
+    liked?: unknown;
+  };
+
+  const counts = makeVoteCounts(normalizedSlugs);
+  if (data.counts && typeof data.counts === "object") {
+    for (const [slug, value] of Object.entries(data.counts as Record<string, unknown>)) {
+      if (slug in counts && typeof value === "number" && Number.isFinite(value)) {
+        counts[slug] = value;
+      }
+    }
+  }
+
+  const liked = Array.isArray(data.liked)
+    ? data.liked.filter((slug): slug is string => typeof slug === "string")
+    : [];
+
+  return { counts, liked };
+}
+
+async function toggleGameVote(
+  slug: string,
+  account: string,
+): Promise<{ gameId: string; liked: boolean; votesCount: number }> {
+  if (!BACKEND_URL) throw new Error("Backend URL is not configured");
+
+  const res = await fetch(`${BACKEND_URL}/games/${encodeURIComponent(slug)}/votes/toggle`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ account }),
+  });
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+
+  return (await res.json()) as { gameId: string; liked: boolean; votesCount: number };
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function HeartIcon({ filled }: { filled: boolean }) {
@@ -227,21 +284,11 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
-function WalletButton({
-  address, onConnect, onDisconnect,
-}: { address: string | null; onConnect: () => void; onDisconnect: () => void }) {
-  if (address) {
-    return (
-      <button className="wallet-btn wallet-btn--connected" onClick={onDisconnect}>
-        <span className="wallet-dot" />
-        {address.slice(0, 6)}…{address.slice(-4)}
-      </button>
-    );
-  }
+function WalletButton() {
   return (
-    <button className="wallet-btn" onClick={onConnect}>
-      Connect Wallet
-    </button>
+    <div className="wallet-slot" aria-label="Wallet connection">
+      <Wallet theme="vara" displayBalance={false} />
+    </div>
   );
 }
 
@@ -260,14 +307,23 @@ function CategoryPill({ id, active, onClick }: { id: string; active: boolean; on
   );
 }
 
-function VoteBtn({ count, voted, disabled, onVote }: {
-  count: number; voted: boolean; disabled: boolean; onVote: (e: React.MouseEvent) => void;
+function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
+  count: number; voted: boolean; disabled: boolean; walletConnected: boolean; onVote: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
       className={`vote-btn${voted ? " vote-btn--voted" : ""}${disabled ? " vote-btn--disabled" : ""}`}
+      disabled={disabled}
       onClick={onVote}
-      title={disabled ? "Connect wallet to vote" : voted ? "Remove vote" : "Vote for this game"}
+      title={
+        !walletConnected
+          ? "Connect wallet to vote"
+          : disabled
+            ? "Vote request in progress"
+            : voted
+              ? "Remove vote"
+              : "Vote for this game"
+      }
     >
       <HeartIcon filled={voted} />
       <span>{count > 0 ? count.toLocaleString() : "Vote"}</span>
@@ -275,11 +331,12 @@ function VoteBtn({ count, voted, disabled, onVote }: {
   );
 }
 
-function GameCardEl({ game, voteCount, voted, walletConnected, onVote, featured }: {
+function GameCardEl({ game, voteCount, voted, walletConnected, votePending = false, onVote, featured }: {
   game: GameCard;
   voteCount: number;
   voted: boolean;
   walletConnected: boolean;
+  votePending?: boolean;
   onVote: () => void;
   featured: boolean;
 }) {
@@ -328,7 +385,8 @@ function GameCardEl({ game, voteCount, voted, walletConnected, onVote, featured 
           <VoteBtn
             count={voteCount}
             voted={voted}
-            disabled={!walletConnected}
+            disabled={!walletConnected || votePending}
+            walletConnected={walletConnected}
             onVote={(e) => { e.stopPropagation(); onVote(); }}
           />
           {isLive && game.url && (
@@ -350,11 +408,14 @@ function GameCardEl({ game, voteCount, voted, walletConnected, onVote, featured 
 const queryClient = new QueryClient();
 
 function PlatformApp() {
+  const { account } = useAccount();
   const [liveGames, setLiveGames] = useState<GameCard[]>(FALLBACK_GAMES);
   const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [votes, setVotes] = useState<Record<string, number>>(INITIAL_VOTES);
+  const [votes, setVotes] = useState<Record<string, number>>({});
   const [myVotes, setMyVotes] = useState<Set<string>>(new Set());
+  const [pendingVotes, setPendingVotes] = useState<Set<string>>(new Set());
+  const accountIdentity = account?.decodedAddress || account?.address || "";
+  const votesEnabled = Boolean(BACKEND_URL);
 
   useEffect(() => {
     let cancelled = false;
@@ -364,29 +425,74 @@ function PlatformApp() {
     return () => { cancelled = true; };
   }, []);
 
-  const allGames = [...liveGames, ...SOON_GAMES];
+  const allGames = useMemo(() => [...liveGames, ...SOON_GAMES], [liveGames]);
+  const allGameIds = useMemo(() => allGames.map((game) => game.id), [allGames]);
   const filteredGames = activeCategory === "all"
     ? allGames
     : allGames.filter(g => g.categories.includes(activeCategory as CategoryId));
 
-  function handleVote(gameId: string) {
-    if (!walletAddress) return;
+  useEffect(() => {
+    let cancelled = false;
+    fetchVotes(allGameIds, accountIdentity || undefined)
+      .then((snapshot) => {
+        if (cancelled) return;
+        setVotes(makeVoteCounts(allGameIds, snapshot.counts));
+        setMyVotes(new Set(snapshot.liked));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setVotes(makeVoteCounts(allGameIds));
+        setMyVotes(new Set());
+      });
+    return () => { cancelled = true; };
+  }, [accountIdentity, allGameIds]);
+
+  async function handleVote(gameId: string) {
+    if (!votesEnabled || !accountIdentity || pendingVotes.has(gameId)) return;
     const wasVoted = myVotes.has(gameId);
-    setVotes(v => ({ ...v, [gameId]: (v[gameId] ?? 0) + (wasVoted ? -1 : 1) }));
+    setPendingVotes((prev) => {
+      const next = new Set(prev);
+      next.add(gameId);
+      return next;
+    });
+    setVotes(v => ({ ...v, [gameId]: Math.max(0, (v[gameId] ?? 0) + (wasVoted ? -1 : 1)) }));
     setMyVotes(prev => {
       const next = new Set(prev);
       wasVoted ? next.delete(gameId) : next.add(gameId);
       return next;
     });
-  }
 
-  // TODO: replace with @gear-js/wallet-connect integration
-  function handleConnect() {
-    setWalletAddress("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY");
-  }
-  function handleDisconnect() {
-    setWalletAddress(null);
-    setMyVotes(new Set());
+    try {
+      const result = await toggleGameVote(gameId, accountIdentity);
+      setVotes((prev) => ({ ...prev, [gameId]: result.votesCount }));
+      setMyVotes((prev) => {
+        const next = new Set(prev);
+        if (result.liked) {
+          next.add(gameId);
+        } else {
+          next.delete(gameId);
+        }
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to toggle vote", error);
+      setVotes(v => ({ ...v, [gameId]: Math.max(0, (v[gameId] ?? 0) + (wasVoted ? 1 : -1)) }));
+      setMyVotes(prev => {
+        const next = new Set(prev);
+        if (wasVoted) {
+          next.add(gameId);
+        } else {
+          next.delete(gameId);
+        }
+        return next;
+      });
+    } finally {
+      setPendingVotes((prev) => {
+        const next = new Set(prev);
+        next.delete(gameId);
+        return next;
+      });
+    }
   }
 
   const liveCount = liveGames.filter(g => g.status === "live").length;
@@ -402,7 +508,7 @@ function PlatformApp() {
           <span className="network-dot" />
           Vara Mainnet
         </span>
-        <WalletButton address={walletAddress} onConnect={handleConnect} onDisconnect={handleDisconnect} />
+        <WalletButton />
       </header>
 
       <section className="hero">
@@ -452,7 +558,8 @@ function PlatformApp() {
             game={game}
             voteCount={votes[game.id] ?? 0}
             voted={myVotes.has(game.id)}
-            walletConnected={!!walletAddress}
+            walletConnected={!!accountIdentity && votesEnabled}
+            votePending={pendingVotes.has(game.id)}
             onVote={() => handleVote(game.id)}
             featured={i === 0 && activeCategory === "all"}
           />
@@ -469,10 +576,9 @@ function PlatformApp() {
         </div>
       </main>
 
-      {!walletAddress && (
+      {!accountIdentity && votesEnabled && (
         <div className="vote-nudge">
-          <span>Connect your Vara wallet to vote for upcoming games.</span>
-          <button className="wallet-btn wallet-btn--sm" onClick={handleConnect}>Connect Wallet</button>
+          <span>Connect your Vara wallet in the header to vote for upcoming games.</span>
         </div>
       )}
     </div>
@@ -482,7 +588,11 @@ function PlatformApp() {
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <PlatformApp />
+      <ApiProvider initialArgs={{ endpoint: VARA_NODE_ADDRESS }}>
+        <AccountProvider appName={APP_NAME}>
+          <PlatformApp />
+        </AccountProvider>
+      </ApiProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );
