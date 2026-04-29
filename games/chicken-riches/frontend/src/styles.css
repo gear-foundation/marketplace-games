@@ -403,12 +403,6 @@ canvas {
   font-size: 14px;
 }
 
-.reef-status-copy--strong {
-  font-weight: 900;
-  letter-spacing: -0.01em;
-  color: #184f66;
-}
-
 .reef-wallet-widget {
   padding: 14px;
   border-radius: 18px;
@@ -422,11 +416,6 @@ canvas {
 
 .reef-chain-note {
   min-height: 42px;
-}
-
-.reef-chain-note--hero {
-  font-size: 18px;
-  line-height: 1.4;
 }
 
 .reef-chain-note--success {

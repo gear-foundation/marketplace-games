@@ -452,14 +452,10 @@ export function App() {
     ? "Loading every fish, frame, and background before the dive begins."
     : assetsLoadState === "error"
       ? "Some art assets failed to load. Refresh the page and try again."
-      : requiresScoreSubmit
-        ? "Please submit your result."
       : !playAccess.canPlay
         ? playAccess.description
         : formatReason(game);
   const showFieldAction = assetsLoadState !== "loading" && game.status !== "playing" && game.gameOverOverlayDelayMs <= 0;
-  const shouldEmphasizePlayAccessDescription =
-    playAccess.description === "Connect your Vara wallet in the panel to unlock the reef and start playing.";
 
   return (
     <main className="reef-shell">
@@ -527,9 +523,7 @@ export function App() {
             {isAssetsReady && !playAccess.canPlay ? (
               <div className="reef-lock-overlay" role="status" aria-live="polite">
                 <strong>{playAccess.title}</strong>
-                <p className={shouldEmphasizePlayAccessDescription ? "reef-status-copy reef-status-copy--strong" : undefined}>
-                  {playAccess.description}
-                </p>
+                <p>{playAccess.description}</p>
               </div>
             ) : null}
             {showFieldAction ? (

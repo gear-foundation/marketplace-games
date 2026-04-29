@@ -556,11 +556,6 @@ export function DeepSeaChainPanel({
         ? "Dive over. Submit your score to unlock the next run."
         : "This dive ended without a score to submit."
       : "Submit unlocks only after the current dive ends.");
-  const shouldEmphasizeResultHint =
-    resultHint === "Submit unlocks only after the current dive ends."
-    || resultHint.startsWith("Confirm ")
-    || resultHint === "Signature required to submit this score.";
-  const shouldEnlargeResultHint = resultHint === "Dive over. Submit your score to unlock the next run.";
 
   return (
     <>
@@ -574,11 +569,7 @@ export function DeepSeaChainPanel({
         </button>
 
         {submitDisabledReason && submitStatus !== "pending" ? <p className="reef-chain-empty">{submitDisabledReason}</p> : null}
-        <p
-          className={`reef-status-copy reef-chain-note reef-chain-note--${submitStatus}${shouldEmphasizeResultHint ? " reef-status-copy--strong" : ""}${shouldEnlargeResultHint ? " reef-chain-note--hero" : ""}`}
-        >
-          {resultHint}
-        </p>
+        <p className={`reef-status-copy reef-chain-note reef-chain-note--${submitStatus}`}>{resultHint}</p>
       </section>
 
       <section className="reef-panel" aria-label="Gas voucher">
