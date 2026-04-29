@@ -17,7 +17,7 @@ lava and rocks, and submit your best run on-chain.
 | -------------- | --- |
 | Network        | `vara-mainnet` |
 | RPC            | `wss://rpc.vara.network` |
-| Program ID     | `0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1` |
+| Program ID     | `0xacc90a11efbb848c75cfd166b00c4bf3d702fd767f0930e9d2840bf091614f1b` |
 | Voucher backend| `https://arcade-vara-production.up.railway.app` |
 
 ## Quick Start
@@ -41,6 +41,36 @@ npm run dev
 ```
 
 Then open the dev server URL printed by Vite.
+
+## Railway Frontend Deploy
+
+Deploy the frontend from `games/robo-miner/frontend` using its local
+`Dockerfile`.
+
+Recommended Railway service settings:
+
+- Root Directory: `games/robo-miner/frontend` if Railway points at the
+  monorepo root, or just `frontend` if the `robo-miner` directory itself
+  is the repository root
+- Builder: `Dockerfile`
+- Port: `8080`
+
+Recommended environment variables:
+
+- `VITE_NODE_ADDRESS=wss://rpc.vara.network`
+- `VITE_PROGRAM_ID=0xacc90a11efbb848c75cfd166b00c4bf3d702fd767f0930e9d2840bf091614f1b`
+- `VITE_NETWORK=vara-mainnet`
+- `VITE_VOUCHER_BACKEND_URL=https://arcade-vara-production.up.railway.app`
+- `VITE_ALLOWED_HOSTS=<your-service>.up.railway.app`
+
+Notes:
+
+- The container is multi-stage: Vite builds static assets, then `nginx`
+  serves `dist/` on Railway's `${PORT}`.
+- If Railway assigns a different public hostname, add it to
+  `VITE_ALLOWED_HOSTS` as a comma-separated list.
+- Frontend env vars are baked in at build time, so after changing any
+  `VITE_*` value you need a rebuild/redeploy.
 
 ## On-Chain Flow
 

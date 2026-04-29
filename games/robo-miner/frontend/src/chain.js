@@ -14,12 +14,12 @@
 import { GearApi } from '@gear-js/api';
 import { web3FromAddress } from '@polkadot/extension-dapp';
 import { SailsProgram } from './contracts/lib.ts';
-import deployment from '../../contract/deployment.json' assert { type: 'json' };
 
 const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
 const RPC = env.VITE_NODE_ADDRESS || 'wss://rpc.vara.network';
 const PROGRAM_ID = (env.VITE_PROGRAM_ID
-  || '0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1');
+  || '0xacc90a11efbb848c75cfd166b00c4bf3d702fd767f0930e9d2840bf091614f1b');
+const NETWORK = env.VITE_NETWORK || 'vara-mainnet';
 
 let _apiPromise = null;
 let _program = null;
@@ -212,7 +212,6 @@ export function formatVara(raw, digits = 3) {
 
 export const PROGRAM_INFO = {
   programId: PROGRAM_ID,
-  network: deployment.network,
-  rpc: RPC,
+  network: NETWORK,
   voucherBackend: VOUCHER_BACKEND_URL,
 };
