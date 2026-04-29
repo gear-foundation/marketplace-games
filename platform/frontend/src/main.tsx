@@ -432,13 +432,18 @@ function PlatformApp() {
 
   const allGames = useMemo(() => [...liveGames, ...SOON_GAMES], [liveGames]);
   const allGameIds = useMemo(() => allGames.map((game) => game.id), [allGames]);
+  const votableGameIds = useMemo(
+    () => allGames.filter((game) => game.status === "live").map((game) => game.id),
+    [allGames],
+  );
+  const votableGameIdSet = useMemo(() => new Set(votableGameIds), [votableGameIds]);
   const filteredGames = activeCategory === "all"
     ? allGames
     : allGames.filter(g => g.categories.includes(activeCategory as CategoryId));
 
   useEffect(() => {
     let cancelled = false;
-    fetchVotes(allGameIds, canVote ? accountIdentity : undefined)
+    fetchVotes(votableGameIds, canVote ? accountIdentity : undefined)
       .then((snapshot) => {
         if (cancelled) return;
         setVotes(makeVoteCounts(allGameIds, snapshot.counts));
@@ -450,10 +455,10 @@ function PlatformApp() {
         setMyVotes(new Set());
       });
     return () => { cancelled = true; };
-  }, [accountIdentity, allGameIds, canVote]);
+  }, [accountIdentity, allGameIds, canVote, votableGameIds]);
 
   async function handleVote(gameId: string) {
-    if (!canVote || pendingVotes.has(gameId)) return;
+    if (!canVote || !votableGameIdSet.has(gameId) || pendingVotes.has(gameId)) return;
     const wasVoted = myVotes.has(gameId);
     setPendingVotes((prev) => {
       const next = new Set(prev);
@@ -565,7 +570,7 @@ function PlatformApp() {
             game={game}
             voteCount={votes[game.id] ?? 0}
             voted={myVotes.has(game.id)}
-            canVote={canVote}
+            canVote={canVote && game.status === "live"}
             votePending={pendingVotes.has(game.id)}
             onVote={() => handleVote(game.id)}
             featured={i === 0 && activeCategory === "all"}
