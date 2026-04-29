@@ -57,6 +57,7 @@ const INITIAL_VOTES: Record<string, number> = {
   "nebula-blaster": 0,
   "2048": 0,
   "deep-sea-feast": 0,
+  "robo-miner": 0,
 };
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
@@ -66,6 +67,7 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
     case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
     case "2048":            return "/2048image.png";
     case "deep-sea-feast":  return "/deep_sea_feast.png";
+    case "robo-miner":      return "";
     default:                return fallback || "";
   }
 }
@@ -74,6 +76,7 @@ function getGameCategories(slug: string, tags: string[]): CategoryId[] {
   switch (slug) {
     case "skybound-jump":  return ["platformer", "arcade"];
     case "lumberjack":     return ["arcade"];
+    case "robo-miner":     return ["arcade"];
     case "nebula-blaster": return ["shooter", "arcade"];
     default: {
       const tl = tags.map(t => t.toLowerCase());
@@ -134,6 +137,15 @@ const FALLBACK_GAMES: GameCard[] = [
     url: "https://deep-sea-feast-vara.up.railway.app/",
     status: "live",
     image: "/deep_sea_feast.png",
+  {
+    id: "robo-miner",
+    title: "Robo Miner",
+    description: "Mine resources, build your robot, and compete for the highest score on-chain.",
+    url: "https://robo-miner-vara.up.railway.app/",
+    status: "live",
+    image: "",
+    categories: ["arcade"],
+  },
     categories: ["arcade"],
   },
 ];
