@@ -106,5 +106,23 @@
       "duration": 86400,
       "oneTime": false
     }
+  },
+  {
+    "slug": "chicken-riches",
+    "title": "Chicken Riches",
+    "description": "A barnyard arcade game where you catch eggs, bank them before they break, fend off fox attacks, and submit your best shift on-chain.",
+    "frontendUrl": "${CHICKEN_RICHES_URL:https://chicken-riches-vara.up.railway.app/}",
+    "contractAddress": "0xf97028c91e25e8725af8373fad4f01c882bf187146e8ee5373f76e1d0bb43ac4",
+    "imageUrl": null,
+    "tags": ["Arcade", "Leaderboard", "Gas voucher"],
+    "status": "hidden",
+    "sortOrder": 60,
+    "gasless": {
+      "enabled": true,
+      "name": "ChickenRiches",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
   }
 ]

@@ -1,82 +1,174 @@
-export type GameStatus = "idle" | "playing" | "over";
+export type GameStatus = "start" | "playing" | "paused" | "gameOver";
 
-export type GameOverReason = "predator" | "starvation" | "hook";
+export type GameOverReason = "brokenEggs" | "noChickens" | null;
 
-export type FishingHookPhase = "warning" | "dropping" | "holding" | "rising";
+export type ChickenAnimationName = "idle" | "layingEgg" | "scaredStart" | "scaredLoop" | "relieved" | "stolen";
 
-export type PlayerFish = {
+export type ChickenAnimation = {
+  name: ChickenAnimationName;
+  startedAt: number;
+  eventTriggered: boolean;
+};
+
+export type Chicken = {
+  id: string;
   x: number;
   y: number;
-  size: number;
-  saturation: number;
-  visualSaturation: number;
-  growthProgress: number;
+  alive: boolean;
+  pendingRemoval: boolean;
+  threatenedByFox: boolean;
+  animation: ChickenAnimation;
+};
+
+export type EggState = "falling" | "caught" | "broken" | "thrown";
+
+export type Egg = {
+  id: string;
+  x: number;
+  y: number;
+  vy: number;
+  radius: number;
+  spawnedAt: number;
+  sourceChickenId: string;
+  state: EggState;
+};
+
+type EggVisualEffectBase = {
+  id: string;
+  x: number;
+  y: number;
+  startedAt: number;
+  durationMs: number;
+};
+
+export type EggVisualEffect =
+  | (EggVisualEffectBase & {
+      kind: "foxHit";
+    })
+  | (EggVisualEffectBase & {
+      kind: "depositDrop";
+      targetX: number;
+      targetY: number;
+    });
+
+export type FarmerAnimationName = "catch" | "deposit" | "throw" | "slipFall" | "recover";
+
+export type FarmerAnimation = {
+  name: FarmerAnimationName;
+  startedAt: number;
+  durationMs: number;
+};
+
+export type Farmer = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
   facing: -1 | 1;
-  biteAnimationMs: number;
-  growthPulseMs: number;
-  growthTargetSize: number | null;
+  walkCycleMs: number;
+  isJumping: boolean;
+  isFallen: boolean;
+  fallenUntil: number | null;
+  basketEggs: number;
+  animation: FarmerAnimation | null;
 };
 
-export type EnemyFish = {
+export type EggCollector = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type EggPuddle = {
   id: string;
   x: number;
   y: number;
-  baseY: number;
-  size: number;
-  speed: number;
-  direction: -1 | 1;
-  driftAmplitude: number;
-  driftPhase: number;
-  driftSpeed: number;
-  points: number;
-  hue: number;
-  reactionAnimationMs: number;
+  radius: number;
+  createdAt: number;
+  slippedAt: number | null;
+  expiresAt: number;
 };
 
-export type Plankton = {
+export type CollectorFillState =
+  | "collector_empty"
+  | "collector_low"
+  | "collector_medium"
+  | "collector_high"
+  | "collector_full";
+
+export type CollectorFeedback = {
+  startedAt: number;
+  durationMs: number;
+  pointsAwarded: number;
+  fromState: CollectorFillState;
+  toState: CollectorFillState;
+};
+
+export type FoxAnimationName = "appear" | "lickLips" | "hover" | "steal" | "carryUp" | "hit" | "retreat";
+
+export type FoxAnimation = {
+  name: FoxAnimationName;
+  startedAt: number;
+};
+
+export type Fox = {
   id: string;
   x: number;
   y: number;
-  baseY: number;
-  speed: number;
-  direction: -1 | 1;
-  driftAmplitude: number;
-  driftPhase: number;
-  driftSpeed: number;
-  points: number;
-  scale: number;
+  targetChickenId: string;
+  appearedAt: number;
+  attackAt: number;
+  active: boolean;
+  animation: FoxAnimation;
 };
 
-export type FishingHook = {
-  x: number;
-  targetY: number;
-  phase: FishingHookPhase;
-  phaseMs: number;
-  ageMs: number;
-  swingSeed: number;
+export type DepositCombo = {
+  count: number;
+  lastDepositTime: number;
+  activeUntil: number;
+};
+
+export type GameStats = {
+  caughtEggs: number;
+  depositedEggs: number;
+  foxesRepelled: number;
+  chickensLost: number;
 };
 
 export type GameState = {
   status: GameStatus;
-  player: PlayerFish;
-  enemies: EnemyFish[];
-  plankton: Plankton[];
-  hook: FishingHook | null;
-  hookCooldownMs: number;
+  gameOverReason: GameOverReason;
   score: number;
-  timeMs: number;
-  spawnCooldownMs: number;
-  planktonSpawnCooldownMs: number;
-  nextEnemyId: number;
-  nextPlanktonId: number;
-  gameOverOverlayDelayMs: number;
-  reason: GameOverReason | null;
+  brokenEggsCount: number;
+  collectorVisualEggs: number;
+  collectorFeedback: CollectorFeedback | null;
+  chickens: Chicken[];
+  eggs: Egg[];
+  puddles: EggPuddle[];
+  thrownEggs: Egg[];
+  eggEffects: EggVisualEffect[];
+  farmer: Farmer;
+  collector: EggCollector;
+  fox: Fox | null;
+  eggsLaidTotal: number;
+  eggsLaidSinceLastFox: number;
+  eggSpawnIntervalMs: number;
+  eggFallSpeed: number;
+  lastEggSpawnTime: number;
+  lastDifficultyIncreaseTime: number;
+  depositCombo: DepositCombo;
+  stats: GameStats;
+  nextEntityId: number;
+  nextChickenIndex: number;
+  elapsedMs: number;
+  nowMs: number;
 };
 
 export type InputState = {
-  up: boolean;
-  down: boolean;
   left: boolean;
   right: boolean;
-  pointer: { x: number; y: number } | null;
+  jumpQueued: boolean;
+  depositQueued: boolean;
+  throwQueued: boolean;
 };

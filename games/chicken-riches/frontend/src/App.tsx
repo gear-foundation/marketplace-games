@@ -1,113 +1,35 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@gear-js/react-hooks";
-import { DeepSeaChainPanel, type DeepSeaPlayAccess } from "./components/DeepSeaChainPanel";
+import { ChickenRichesChainPanel, type ChickenRichesPlayAccess } from "./components/ChickenRichesChainPanel";
 import {
   CANVAS_PIXEL_RATIO_CAP,
   FIELD_HEIGHT,
   FIELD_WIDTH,
+  HUD_UPDATE_INTERVAL_MS,
+  MAX_BROKEN_EGGS,
   MAX_FRAME_DELTA_MS,
+  MAX_BASKET_EGGS,
   TARGET_FRAME_INTERVAL_MS,
 } from "./game/constants";
-import {
-  loadBackgroundImage,
-  loadBabyFishBiteFrames,
-  loadBabyFishImage,
-  loadBabyFishReactionFrames,
-  loadLevel2FishBiteFrames,
-  loadLevel2FishHurtFrames,
-  loadLevel3FishBiteFrames,
-  loadLevel3FishHurtFrames,
-  loadLevel4FishBiteFrames,
-  loadLevel4FishHurtFrames,
-  loadLevel5FishBiteFrames,
-  loadLevel5FishHurtFrames,
-  loadLevel6FishBiteFrames,
-  loadLevel6FishHurtFrames,
-  loadLevel7FishBiteFrames,
-  loadLevel7FishHurtFrames,
-  loadLevel8FishBiteFrames,
-  loadPlanktonImage,
-} from "./game/assets";
-import { drawGame, type FishRenderAssets, prepareFishRenderAssets } from "./game/render";
-import { createInitialGameState, startGame } from "./game/state";
+import { preloadGameAssets } from "./game/assets";
+import { drawGame } from "./game/render";
+import { cloneGameState, createInitialGameState, startGame } from "./game/state";
 import type { GameState, InputState } from "./game/types";
-import { stepGame } from "./game/update";
+import { isFarmerNearCollector, stepGame } from "./game/update";
 
 const EMPTY_INPUT: InputState = {
-  up: false,
-  down: false,
   left: false,
   right: false,
-  pointer: null,
+  jumpQueued: false,
+  depositQueued: false,
+  throwQueued: false,
 };
 
-const HUD_UPDATE_INTERVAL_MS = 140;
-const DEFAULT_PLAY_ACCESS: DeepSeaPlayAccess = {
+const DEFAULT_PLAY_ACCESS: ChickenRichesPlayAccess = {
   canPlay: false,
   title: "Loading wallet",
-  description: "Wallet providers are still loading. The reef unlocks as soon as a wallet becomes available.",
+  description: "Wallet providers are still loading. The coop unlocks as soon as a wallet becomes available.",
 };
-
-function createEmptyRenderAssets(): FishRenderAssets {
-  return {
-    babyFishBiteFrames: [],
-    level2FishBiteFrames: [],
-    level2FishHurtFrames: [],
-    level3FishBiteFrames: [],
-    level3FishHurtFrames: [],
-    level4FishBiteFrames: [],
-    level4FishHurtFrames: [],
-    level5FishBiteFrames: [],
-    level5FishHurtFrames: [],
-    level6FishBiteFrames: [],
-    level6FishHurtFrames: [],
-    level7FishBiteFrames: [],
-    level7FishHurtFrames: [],
-    level8FishBiteFrames: [],
-    babyFishReactionFrames: [],
-    babyFishImage: null,
-    backgroundCanvas: null,
-    planktonImage: null,
-  };
-}
-
-function formatReason(state: GameState) {
-  if (state.reason === "predator") {
-    return "A larger predator got you first. Hunt smaller targets and circle around the giants.";
-  }
-
-  if (state.reason === "starvation") {
-    return "Your saturation hit zero. Keep feeding before the ocean drains your energy.";
-  }
-
-  if (state.reason === "hook") {
-    return "A fishing hook caught you. Watch the warning lane and avoid the metal hook.";
-  }
-
-  return "Eat smaller fish, avoid larger ones, and grow through all eight ocean tiers.";
-}
-
-function createCanvasPosition(target: HTMLElement, clientX: number, clientY: number) {
-  const rect = target.getBoundingClientRect();
-  const scaleX = FIELD_WIDTH / rect.width;
-  const scaleY = FIELD_HEIGHT / rect.height;
-
-  return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY,
-  };
-}
-
-function isMovementCode(code: string) {
-  return code === "arrowup" || code === "keyw"
-    || code === "arrowdown" || code === "keys"
-    || code === "arrowleft" || code === "keya"
-    || code === "arrowright" || code === "keyd";
-}
-
-function hasKeyboardMovement(input: InputState) {
-  return input.up || input.down || input.left || input.right;
-}
 
 function prepareCanvasForDraw(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
   const pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, CANVAS_PIXEL_RATIO_CAP));
@@ -120,41 +42,80 @@ function prepareCanvasForDraw(canvas: HTMLCanvasElement, context: CanvasRenderin
   }
 
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  return pixelRatio;
 }
 
 function getCanvasContext(canvas: HTMLCanvasElement | null) {
-  if (!canvas) return;
+  if (!canvas) {
+    return null;
+  }
 
-  return canvas.getContext("2d", { alpha: false });
+  return canvas.getContext("2d");
 }
 
-function drawCanvasFrame(canvas: HTMLCanvasElement | null, context: CanvasRenderingContext2D | null, state: GameState, assets: FishRenderAssets) {
-  if (!canvas || !context) return;
-  prepareCanvasForDraw(canvas, context);
-  drawGame(context, state, assets);
+function clearActionQueues(input: InputState) {
+  input.jumpQueued = false;
+  input.depositQueued = false;
+  input.throwQueued = false;
 }
 
-function createGameSnapshot(state: GameState): GameState {
-  return {
-    ...state,
-    player: { ...state.player },
-    hook: state.hook ? { ...state.hook } : null,
-  };
+function clearAllInput(input: InputState) {
+  input.left = false;
+  input.right = false;
+  clearActionQueues(input);
+}
+
+function getStatusLabel(status: GameState["status"]) {
+  if (status === "playing") return "Playing";
+  if (status === "paused") return "Paused";
+  if (status === "gameOver") return "Game Over";
+  return "Start Screen";
+}
+
+function getFoxTimerText(state: GameState) {
+  if (!state.fox) {
+    return "Calm";
+  }
+
+  return `${Math.max(0, (state.fox.attackAt - state.nowMs) / 1000).toFixed(1)}s`;
+}
+
+function getStageHint(state: GameState) {
+  if (state.status === "start") {
+    return "";
+  }
+
+  if (state.status === "paused") {
+    return "Resume when you're ready, or start a fresh shift.";
+  }
+
+  if (state.status === "gameOver") {
+    return "This shift is over. Start a fresh one whenever you're ready.";
+  }
+
+  if (state.fox) {
+    return "The fox is on the roost. Move under the marked hen and press Space to throw an egg straight up.";
+  }
+
+  if (state.farmer.basketEggs > 0 && isFarmerNearCollector(state.farmer, state.collector)) {
+    return "You're in deposit range. Tap Down to bank eggs and build the combo streak.";
+  }
+
+  return "Keep the basket under falling eggs, jump over puddles, bank eggs often, and press Space anytime to throw one upward.";
 }
 
 export function App() {
   const { account } = useAccount();
   const [game, setGame] = useState<GameState>(() => createInitialGameState());
-  const [assets, setAssets] = useState<FishRenderAssets>(() => createEmptyRenderAssets());
-  const [assetsLoadState, setAssetsLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [assetLoadProgress, setAssetLoadProgress] = useState(0);
+  const [assetLoadError, setAssetLoadError] = useState<string | null>(null);
   const [gameSessionId, setGameSessionId] = useState(1);
   const [isCurrentSessionSubmitted, setIsCurrentSessionSubmitted] = useState(false);
-  const [playAccess, setPlayAccess] = useState<DeepSeaPlayAccess>(DEFAULT_PLAY_ACCESS);
+  const [playAccess, setPlayAccess] = useState<ChickenRichesPlayAccess>(DEFAULT_PLAY_ACCESS);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const gameRef = useRef<GameState>(game);
-  const assetsRef = useRef<FishRenderAssets>(assets);
   const inputRef = useRef<InputState>({ ...EMPTY_INPUT });
   const animationFrameRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
@@ -162,118 +123,138 @@ export function App() {
   const accountIdentity = account?.decodedAddress || account?.address || "";
   const previousAccountIdentity = useRef(accountIdentity);
 
-  const saturationProgress = useMemo(() => Math.max(0, Math.min(100, game.player.saturation)), [game.player.saturation]);
-  const growthProgress = useMemo(() => Math.max(0, Math.min(100, game.player.growthProgress)), [game.player.growthProgress]);
-  const isAssetsReady = assetsLoadState === "ready";
-  const shouldDrawLoadedScene = assetsLoadState !== "loading";
-  const requiresScoreSubmit = game.status === "over" && game.score > 0 && !isCurrentSessionSubmitted;
-  const canStartGame = isAssetsReady && playAccess.canPlay && !requiresScoreSubmit;
+  const aliveChickens = useMemo(() => game.chickens.filter((chicken) => chicken.alive).length, [game.chickens]);
+  const canInteractWithGame = assetsReady && !assetLoadError;
+  const requiresScoreSubmit = game.status === "gameOver" && game.score > 0 && !isCurrentSessionSubmitted;
+  const canStartGame = canInteractWithGame && playAccess.canPlay && !requiresScoreSubmit;
+  const stageHint = assetLoadError
+    ? "Game art failed to load. Refresh the page to retry the sprite preload."
+    : !assetsReady
+      ? `Loading game art... ${assetLoadProgress}%`
+      : requiresScoreSubmit
+        ? "This run is waiting for an on-chain score submit. The wallet signature should open automatically; if needed, retry from the chain panel."
+      : getStageHint(game);
 
-  useEffect(() => {
-    contextRef.current = getCanvasContext(canvasRef.current) ?? null;
-    if (shouldDrawLoadedScene) {
-      drawCanvasFrame(canvasRef.current, contextRef.current, gameRef.current, assetsRef.current);
+  const publishGameState = (urgent = false) => {
+    const snapshot = cloneGameState(gameRef.current);
+
+    if (urgent) {
+      setGame(snapshot);
+      return;
     }
 
-    const handleResize = () => {
-      if (!shouldDrawLoadedScene) {
-        return;
-      }
+    startTransition(() => {
+      setGame(snapshot);
+    });
+  };
 
-      drawCanvasFrame(canvasRef.current, contextRef.current, gameRef.current, assetsRef.current);
-    };
+  const drawCurrentFrame = () => {
+    const canvas = canvasRef.current;
+    const context = contextRef.current;
 
-    window.addEventListener("resize", handleResize);
+    if (!canvas || !context) {
+      return;
+    }
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      contextRef.current = null;
-    };
-  }, [shouldDrawLoadedScene]);
+    prepareCanvasForDraw(canvas, context);
 
-  useEffect(() => {
-    if (!shouldDrawLoadedScene) {
+    if (!assetsReady) {
+      context.clearRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
+      return;
+    }
+
+    drawGame(context, gameRef.current);
+  };
+
+  const resetInputState = () => {
+    clearAllInput(inputRef.current);
+  };
+
+  const beginRun = () => {
+    if (!canStartGame) {
+      return;
+    }
+
+    const now = performance.now();
+    gameRef.current = startGame(now);
+    lastFrameTimeRef.current = null;
+    lastHudUpdateTimeRef.current = now;
+    setIsCurrentSessionSubmitted(false);
+    setGameSessionId((current) => current + 1);
+    setGame(cloneGameState(gameRef.current));
+    resetInputState();
+    drawCurrentFrame();
+  };
+
+  const togglePause = () => {
+    if (!canInteractWithGame) {
       return;
     }
 
     const current = gameRef.current;
-    const isAnimating = current.status === "playing" || (current.status === "over" && current.gameOverOverlayDelayMs > 0);
-    if (!isAnimating) {
-      drawCanvasFrame(canvasRef.current, contextRef.current, current, assetsRef.current);
-    }
-  }, [game, shouldDrawLoadedScene]);
 
-  useEffect(() => {
-    assetsRef.current = assets;
-    if (!shouldDrawLoadedScene) {
+    if (current.status === "playing") {
+      current.status = "paused";
+    } else if (current.status === "paused") {
+      current.status = "playing";
+      current.nowMs = performance.now();
+      lastFrameTimeRef.current = null;
+    } else {
       return;
     }
 
-    drawCanvasFrame(canvasRef.current, contextRef.current, gameRef.current, assets);
-  }, [assets, shouldDrawLoadedScene]);
+    resetInputState();
+    publishGameState(true);
+    drawCurrentFrame();
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    setAssetsLoadState("loading");
+    contextRef.current = getCanvasContext(canvasRef.current);
+    drawCurrentFrame();
 
-    Promise.all([
-      loadBabyFishBiteFrames(),
-      loadLevel2FishBiteFrames(),
-      loadLevel2FishHurtFrames(),
-      loadLevel3FishBiteFrames(),
-      loadLevel3FishHurtFrames(),
-      loadLevel4FishBiteFrames(),
-      loadLevel4FishHurtFrames(),
-      loadLevel5FishBiteFrames(),
-      loadLevel5FishHurtFrames(),
-      loadLevel6FishBiteFrames(),
-      loadLevel6FishHurtFrames(),
-      loadLevel7FishBiteFrames(),
-      loadLevel7FishHurtFrames(),
-      loadLevel8FishBiteFrames(),
-      loadBabyFishReactionFrames(),
-      loadBabyFishImage(),
-      loadBackgroundImage(),
-      loadPlanktonImage(),
-    ])
-      .then(([babyFrames, level2Frames, level2HurtFrames, level3Frames, level3HurtFrames, level4Frames, level4HurtFrames, level5Frames, level5HurtFrames, level6Frames, level6HurtFrames, level7Frames, level7HurtFrames, level8Frames, reactionFrames, loadedBabyFishImage, loadedBackgroundImage, loadedPlanktonImage]) => {
-        if (isMounted) {
-          const loadedAssets = prepareFishRenderAssets({
-            babyFishBiteFrames: babyFrames,
-            level2FishBiteFrames: level2Frames,
-            level2FishHurtFrames: level2HurtFrames,
-            level3FishBiteFrames: level3Frames,
-            level3FishHurtFrames: level3HurtFrames,
-            level4FishBiteFrames: level4Frames,
-            level4FishHurtFrames: level4HurtFrames,
-            level5FishBiteFrames: level5Frames,
-            level5FishHurtFrames: level5HurtFrames,
-            level6FishBiteFrames: level6Frames,
-            level6FishHurtFrames: level6HurtFrames,
-            level7FishBiteFrames: level7Frames,
-            level7FishHurtFrames: level7HurtFrames,
-            level8FishBiteFrames: level8Frames,
-            babyFishReactionFrames: reactionFrames,
-            babyFishImage: loadedBabyFishImage,
-            backgroundImage: loadedBackgroundImage,
-            planktonImage: loadedPlanktonImage,
-          });
+    const handleResize = () => {
+      drawCurrentFrame();
+    };
 
-          assetsRef.current = loadedAssets;
-          setAssets(loadedAssets);
-          setAssetsLoadState("ready");
-          drawCanvasFrame(canvasRef.current, contextRef.current, gameRef.current, loadedAssets);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      contextRef.current = null;
+    };
+  }, [assetsReady]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setAssetLoadError(null);
+    setAssetLoadProgress(0);
+
+    preloadGameAssets((loaded, total) => {
+      if (cancelled) {
+        return;
+      }
+
+      const nextProgress = total === 0 ? 100 : Math.round((loaded / total) * 100);
+      setAssetLoadProgress(nextProgress);
+    })
+      .then(() => {
+        if (cancelled) {
+          return;
         }
+
+        setAssetsReady(true);
+        setAssetLoadProgress(100);
       })
-      .catch((error: unknown) => {
-        console.error(error);
-        if (isMounted) {
-          setAssetsLoadState("error");
+      .catch((error) => {
+        if (cancelled) {
+          return;
         }
+
+        setAssetLoadError(error instanceof Error ? error.message : "Failed to preload game art.");
       });
 
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
   }, []);
 
@@ -283,119 +264,81 @@ export function App() {
     }
 
     previousAccountIdentity.current = accountIdentity;
-    inputRef.current = { ...EMPTY_INPUT };
-    const next = createInitialGameState();
-    gameRef.current = next;
+    const nextGame = createInitialGameState();
+    gameRef.current = nextGame;
+    lastFrameTimeRef.current = null;
     lastHudUpdateTimeRef.current = 0;
-    setGame(next);
+    setGame(cloneGameState(nextGame));
     setIsCurrentSessionSubmitted(false);
     setGameSessionId((current) => current + 1);
-    if (shouldDrawLoadedScene) {
-      drawCanvasFrame(canvasRef.current, contextRef.current, next, assetsRef.current);
-    }
-  }, [accountIdentity, shouldDrawLoadedScene]);
+    resetInputState();
+    drawCurrentFrame();
+  }, [accountIdentity]);
 
   useEffect(() => {
-    if (!shouldDrawLoadedScene) {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      lastFrameTimeRef.current = null;
-      return undefined;
-    }
-
-    const shouldAnimate = gameRef.current.status === "playing"
-      || (gameRef.current.status === "over" && gameRef.current.gameOverOverlayDelayMs > 0);
-
-    if (!shouldAnimate) {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      lastFrameTimeRef.current = null;
-      return undefined;
-    }
-
-    const tick = (time: number) => {
-      if (lastFrameTimeRef.current === null) {
-        lastFrameTimeRef.current = time;
-      }
-
-      const elapsedMs = time - lastFrameTimeRef.current;
-      if (elapsedMs < TARGET_FRAME_INTERVAL_MS) {
-        animationFrameRef.current = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      const deltaMs = Math.min(MAX_FRAME_DELTA_MS, elapsedMs);
-      lastFrameTimeRef.current = time - (elapsedMs % TARGET_FRAME_INTERVAL_MS);
-
-      const current = gameRef.current;
-      const previousStatus = current.status;
-      const next = stepGame(current, inputRef.current, deltaMs);
-      const reachedEnd = previousStatus !== "over"
-        && next.status === "over";
-      const shouldContinue = next.status === "playing" || (next.status === "over" && next.gameOverOverlayDelayMs > 0);
-      const shouldSyncHud = reachedEnd
-        || !shouldContinue
-        || time - lastHudUpdateTimeRef.current >= HUD_UPDATE_INTERVAL_MS;
-
-      gameRef.current = next;
-      drawCanvasFrame(canvasRef.current, contextRef.current, next, assetsRef.current);
-
-      if (shouldSyncHud) {
-        lastHudUpdateTimeRef.current = time;
-        setGame(createGameSnapshot(next));
-      }
-
-      if (shouldContinue) {
-        animationFrameRef.current = window.requestAnimationFrame(tick);
-      } else {
-        animationFrameRef.current = null;
-        lastFrameTimeRef.current = null;
-      }
-    };
-
-    animationFrameRef.current = window.requestAnimationFrame(tick);
-
-    return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-      }
-      animationFrameRef.current = null;
-      lastFrameTimeRef.current = null;
-    };
-  }, [game.status, shouldDrawLoadedScene]);
-
-  useEffect(() => {
-    const onKeyChange = (event: KeyboardEvent, isPressed: boolean) => {
-      if (event.repeat && isPressed) return;
-
+    const handleKeyDown = (event: KeyboardEvent) => {
       const code = event.code.toLowerCase();
-      if (code === "arrowup" || code === "keyw") inputRef.current.up = isPressed;
-      if (code === "arrowdown" || code === "keys") inputRef.current.down = isPressed;
-      if (code === "arrowleft" || code === "keya") inputRef.current.left = isPressed;
-      if (code === "arrowright" || code === "keyd") inputRef.current.right = isPressed;
+      const input = inputRef.current;
 
-      if (isMovementCode(code)) {
-        inputRef.current.pointer = null;
+      if (
+        code === "arrowleft" || code === "keya" ||
+        code === "arrowright" || code === "keyd" ||
+        code === "arrowup" || code === "keyw" ||
+        code === "arrowdown" || code === "keys" ||
+        code === "space" || code === "keyp" || code === "escape" || code === "enter"
+      ) {
         event.preventDefault();
       }
 
-      if ((code === "space" || code === "enter") && isPressed && gameRef.current.status !== "playing" && canStartGame) {
-        const next = startGame();
-        gameRef.current = next;
-        lastHudUpdateTimeRef.current = 0;
-        setGame(createGameSnapshot(next));
-        drawCanvasFrame(canvasRef.current, contextRef.current, next, assetsRef.current);
+      if (code === "arrowleft" || code === "keya") {
+        input.left = true;
+      }
+
+      if (code === "arrowright" || code === "keyd") {
+        input.right = true;
+      }
+
+      if (event.repeat) {
+        return;
+      }
+
+      if (code === "arrowup" || code === "keyw") {
+        input.jumpQueued = true;
+      }
+
+      if (code === "arrowdown" || code === "keys") {
+        input.depositQueued = true;
+      }
+
+      if (code === "space") {
+        input.throwQueued = true;
+      }
+
+      if (code === "keyp" || code === "escape") {
+        togglePause();
+        return;
+      }
+
+      if (code === "enter" && (gameRef.current.status === "start" || gameRef.current.status === "gameOver")) {
+        beginRun();
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => onKeyChange(event, true);
-    const handleKeyUp = (event: KeyboardEvent) => onKeyChange(event, false);
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const code = event.code.toLowerCase();
+      const input = inputRef.current;
+
+      if (code === "arrowleft" || code === "keya") {
+        input.left = false;
+      }
+
+      if (code === "arrowright" || code === "keyd") {
+        input.right = false;
+      }
+    };
+
     const handleBlur = () => {
-      inputRef.current = { ...EMPTY_INPUT };
+      resetInputState();
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -407,144 +350,175 @@ export function App() {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [canStartGame]);
+  }, [canInteractWithGame]);
 
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (hasKeyboardMovement(inputRef.current)) {
+  useEffect(() => {
+    drawCurrentFrame();
+  }, [assetsReady, game]);
+
+  useEffect(() => {
+    if (!assetsReady || game.status !== "playing") {
+      drawCurrentFrame();
       return;
     }
 
-    inputRef.current.pointer = createCanvasPosition(event.currentTarget, event.clientX, event.clientY);
-  }
+    let cancelled = false;
 
-  function handlePointerLeave() {
-    inputRef.current.pointer = null;
-  }
+    const tick = (now: number) => {
+      if (cancelled) {
+        return;
+      }
 
-  function handleStart() {
-    if (!canStartGame) {
-      return;
-    }
+      const previousFrameTime = lastFrameTimeRef.current;
+      if (previousFrameTime === null) {
+        lastFrameTimeRef.current = now;
+        drawCurrentFrame();
+        animationFrameRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
 
-    const next = startGame();
-    inputRef.current.pointer = null;
-    gameRef.current = next;
-    lastHudUpdateTimeRef.current = 0;
-    setGame(createGameSnapshot(next));
-    setIsCurrentSessionSubmitted(false);
-    setGameSessionId((current) => current + 1);
-    drawCanvasFrame(canvasRef.current, contextRef.current, next, assetsRef.current);
-  }
+      const elapsed = now - previousFrameTime;
+      if (elapsed < TARGET_FRAME_INTERVAL_MS) {
+        animationFrameRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
 
-  const startButtonLabel = assetsLoadState === "loading"
-    ? "Loading Reef..."
-    : assetsLoadState === "error"
-      ? "Load Failed"
-      : !playAccess.canPlay
-        ? playAccess.title || "Wallet Locked"
-        : game.status === "playing"
-            ? "Restart Dive"
-            : game.status === "over"
-              ? "Dive Again"
-              : "Start Dive";
+      lastFrameTimeRef.current = now;
+      stepGame(gameRef.current, inputRef.current, Math.min(MAX_FRAME_DELTA_MS, elapsed), now);
+      clearActionQueues(inputRef.current);
+      drawCurrentFrame();
 
-  const statusCopy = assetsLoadState === "loading"
-    ? "Loading every fish, frame, and background before the dive begins."
-    : assetsLoadState === "error"
-      ? "Some art assets failed to load. Refresh the page and try again."
-      : !playAccess.canPlay
-        ? playAccess.description
-        : formatReason(game);
-  const showFieldAction = assetsLoadState !== "loading" && game.status !== "playing" && game.gameOverOverlayDelayMs <= 0;
+      if (gameRef.current.status !== "playing") {
+        publishGameState(true);
+        return;
+      }
+
+      if (now - lastHudUpdateTimeRef.current >= HUD_UPDATE_INTERVAL_MS) {
+        lastHudUpdateTimeRef.current = now;
+        publishGameState(false);
+      }
+
+      animationFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(tick);
+
+    return () => {
+      cancelled = true;
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = null;
+      lastFrameTimeRef.current = null;
+    };
+  }, [assetsReady, game.status]);
 
   return (
-    <main className="reef-shell">
-      <section className="reef-stage-column">
-        <div className="reef-stage-card">
-          <div className="reef-stage-topline">
-            <span>Wide Reef</span>
-            <span>
-              {assetsLoadState === "loading"
-                ? "Loading all art assets..."
-                : !playAccess.canPlay
-                  ? "Wallet and voucher check required"
-                  : "8 enemy sizes crossing the reef"}
-            </span>
+    <main className="coop-shell">
+      <section className="coop-stage-column">
+        <section className="coop-stage-card" aria-label="Chicken Riches game">
+          <div className="coop-stage-topline">
+            <span>2D arcade · on-chain score submit</span>
+            <span>{assetsReady ? getStatusLabel(game.status) : assetLoadError ? "Asset Error" : "Loading Art"}</span>
           </div>
 
-          <div className="reef-stage-scorebar">
-            <div className="reef-stage-scorebar__grid">
-              <div className="reef-stage-meter-card">
-                <div className="reef-meter">
-                  <div className="reef-meter__row">
-                    <span>Saturation</span>
-                    <strong>{Math.round(saturationProgress)}%</strong>
-                  </div>
-                  <div className="reef-meter__track">
-                    <div className="reef-meter__fill reef-meter__fill--saturation" style={{ width: `${saturationProgress}%` }} />
-                  </div>
+          <div className="coop-canvas-shell">
+            <canvas
+              ref={canvasRef}
+              className="coop-canvas"
+              aria-label="Chicken Riches game field"
+            />
+
+            {!assetsReady && (
+              <div className="coop-loader-overlay" role="status" aria-live="polite">
+                <div className="coop-loader-card">
+                  {!assetLoadError && <div className="coop-loader-spinner" aria-hidden="true" />}
+                  <strong>{assetLoadError ? "Art Load Failed" : "Loading Chicken Riches"}</strong>
+                  <span>{assetLoadError ?? `Preparing sprites and props... ${assetLoadProgress}%`}</span>
                 </div>
               </div>
-
-              <div className="reef-stage-meter-card">
-                <div className="reef-meter">
-                  <div className="reef-meter__row">
-                    <span>Next Growth</span>
-                    <strong>{Math.max(0, Math.round(growthProgress))}%</strong>
-                  </div>
-                  <div className="reef-meter__track">
-                    <div className="reef-meter__fill reef-meter__fill--growth" style={{ width: `${Math.max(0, Math.min(100, growthProgress))}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="reef-canvas-shell"
-            onPointerMove={handlePointerMove}
-            onPointerLeave={handlePointerLeave}
-          >
-            {assetsLoadState === "loading" ? (
-              <div className="reef-loading-stage" role="status" aria-live="polite">
-                <div className="reef-loading-spinner" aria-hidden="true" />
-                <strong>Loading Reef...</strong>
-                <p>Preparing all fish, frames, and background art before the dive begins.</p>
-              </div>
-            ) : (
-              <canvas
-                ref={canvasRef}
-                width={FIELD_WIDTH}
-                height={FIELD_HEIGHT}
-                className="reef-canvas"
-                aria-label="Deep Sea Feast game field"
-              />
             )}
-            {isAssetsReady && !playAccess.canPlay ? (
-              <div className="reef-lock-overlay" role="status" aria-live="polite">
-                <strong>{playAccess.title}</strong>
-                <p>{playAccess.description}</p>
-              </div>
-            ) : null}
-            {showFieldAction ? (
-              <div className="reef-field-action-overlay">
-                <div className="reef-field-action-card">
-                  <button className="reef-action reef-field-action-button" type="button" onClick={handleStart} disabled={!canStartGame}>
-                    {startButtonLabel}
-                  </button>
-                  <p className="reef-status-copy reef-field-action-copy">{statusCopy}</p>
+
+            {assetsReady && !playAccess.canPlay && (
+              <div className="coop-lock-overlay" role="status" aria-live="polite">
+                <div className="coop-lock-card">
+                  <strong>{playAccess.title}</strong>
+                  <p>{playAccess.description}</p>
                 </div>
               </div>
-            ) : null}
+            )}
+
+            {assetsReady && (
+              <div className="coop-field-hud" aria-label="Run metrics">
+                <article className="coop-field-metric">
+                  <span>Score</span>
+                  <strong>{game.score.toLocaleString()}</strong>
+                </article>
+                <article className="coop-field-metric">
+                  <span>Basket</span>
+                  <strong>{game.farmer.basketEggs} / {MAX_BASKET_EGGS}</strong>
+                </article>
+                <article className="coop-field-metric">
+                  <span>Broken</span>
+                  <strong>{game.brokenEggsCount} / {MAX_BROKEN_EGGS}</strong>
+                </article>
+                <article className="coop-field-metric">
+                  <span>Chickens</span>
+                  <strong>{aliveChickens} / 5</strong>
+                </article>
+                <article className={`coop-field-metric${game.fox ? " coop-field-metric-alert" : ""}`}>
+                  <span>Fox timer</span>
+                  <strong>{getFoxTimerText(game)}</strong>
+                </article>
+              </div>
+            )}
           </div>
-        </div>
+
+          <div className="coop-action-row">
+            <div className="coop-action-main">
+              <div className="coop-action-buttons">
+                {game.status === "paused" ? (
+                  <>
+                    <button className="coop-primary-button" type="button" onClick={togglePause} disabled={!canInteractWithGame || !playAccess.canPlay}>
+                      Resume Shift
+                    </button>
+                    <button className="coop-secondary-button" type="button" onClick={beginRun} disabled={!canStartGame}>
+                      Restart Shift
+                    </button>
+                  </>
+                ) : game.status === "playing" ? (
+                  <button className="coop-secondary-button" type="button" onClick={togglePause} disabled={!canInteractWithGame}>
+                    Pause Shift
+                  </button>
+                ) : (
+                  <button className="coop-primary-button" type="button" onClick={beginRun} disabled={!canStartGame}>
+                    {game.status === "gameOver" ? "Start New Shift" : "Start Shift"}
+                  </button>
+                )}
+              </div>
+
+              {assetsReady && (
+                <div className="coop-controls-bar" aria-label="Controls help">
+                  <span>Left / Right: move</span>
+                  <span>Up: jump</span>
+                  <span>Down: deposit egg</span>
+                  <span>Space: throw egg up</span>
+                  <span>P or Esc: pause</span>
+                </div>
+              )}
+            </div>
+
+            {stageHint && <p className="coop-button-note">{stageHint}</p>}
+          </div>
+        </section>
       </section>
 
-      <aside className="reef-sidebar">
-        <DeepSeaChainPanel
+      <aside className="coop-sidebar">
+        <ChickenRichesChainPanel
           score={game.score}
           status={game.status}
           gameSessionId={gameSessionId}
+          autoSubmitOnGameOver
           onPlayAccessChange={setPlayAccess}
           onSessionSubmitStateChange={setIsCurrentSessionSubmitted}
         />
