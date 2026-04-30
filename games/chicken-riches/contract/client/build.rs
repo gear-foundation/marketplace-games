@@ -1,3 +1,3 @@
 fn main() {
-    sails_rs::build_client::<::deep_sea_feast_contract_app::Program>();
+    sails_rs::build_client::<::chicken_riches_contract_app::Program>();
 }

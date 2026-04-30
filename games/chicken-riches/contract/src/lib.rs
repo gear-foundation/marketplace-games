@@ -1,7 +1,7 @@
 #![no_std]
 
 #[cfg(target_arch = "wasm32")]
-pub use ::deep_sea_feast_contract_app::wasm::*;
+pub use ::chicken_riches_contract_app::wasm::*;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use code::WASM_BINARY_OPT as WASM_BINARY;

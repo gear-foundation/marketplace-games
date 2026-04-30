@@ -2,17 +2,16 @@
   color-scheme: light;
   font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top, #f2fdff 0%, #d7f2fb 44%, #b9e3f3 100%);
-  color: #0f5168;
-  --reef-bed-panel:
-    linear-gradient(165deg, rgba(213, 239, 248, 0.96) 0%, rgba(166, 212, 231, 0.96) 100%);
-  --reef-bed-panel-soft: rgba(214, 237, 246, 0.88);
-  --reef-bed-panel-strong: rgba(189, 224, 239, 0.92);
-  --reef-bed-border: rgba(84, 144, 170, 0.22);
-  --reef-bed-shadow: rgba(63, 111, 138, 0.16);
-  --reef-bed-text: #28576f;
-  --reef-bed-text-soft: rgba(40, 87, 111, 0.8);
-  --reef-bed-text-faint: rgba(40, 87, 111, 0.66);
+    radial-gradient(circle at top, rgba(255, 246, 222, 0.9) 0%, rgba(250, 220, 166, 0.72) 32%, rgba(209, 143, 84, 0.46) 100%);
+  color: #4a2b17;
+  --coop-panel-bg: linear-gradient(180deg, rgba(255, 246, 227, 0.96) 0%, rgba(245, 213, 164, 0.94) 100%);
+  --coop-panel-border: rgba(113, 62, 34, 0.18);
+  --coop-shadow: rgba(96, 54, 32, 0.18);
+  --coop-ink: #4d2c19;
+  --coop-muted: rgba(77, 44, 25, 0.72);
+  --coop-accent: #b95c24;
+  --coop-accent-dark: #7d3c15;
+  --coop-soft: rgba(255, 244, 220, 0.86);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -28,9 +27,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.72) 0%, transparent 30%),
-    radial-gradient(circle at 16% 18%, rgba(176, 230, 247, 0.5) 0%, transparent 34%),
-    linear-gradient(180deg, #edfafe 0%, #d7f1fa 48%, #c0e5f3 100%);
+    radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.64) 0%, transparent 26%),
+    radial-gradient(circle at 78% 0%, rgba(255, 239, 189, 0.6) 0%, transparent 28%),
+    linear-gradient(180deg, #fff5df 0%, #f7d7a6 46%, #c77a43 100%);
 }
 
 button,
@@ -38,485 +37,650 @@ canvas {
   touch-action: none;
 }
 
+button {
+  font: inherit;
+}
+
 #root {
   min-height: 100vh;
 }
 
-.reef-shell {
+.coop-shell {
   width: min(100%, 1720px);
   margin: 0 auto;
   min-height: 100vh;
-  padding: clamp(14px, 2vw, 24px);
+  padding: clamp(14px, 2vw, 26px);
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 320px);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 360px);
+  gap: 16px;
+  align-items: start;
+  align-content: start;
 }
 
-.reef-stage-column,
-.reef-sidebar {
+.coop-stage-column,
+.coop-sidebar {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
-.reef-headline {
+.coop-headline {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.reef-kicker {
+.coop-kicker,
+.coop-panel-kicker {
   margin: 0;
-  color: #2f8ea8;
-  font-size: 13px;
-  font-weight: 700;
+  color: #8a461e;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 0.28em;
   text-transform: uppercase;
 }
 
-.reef-headline h1 {
+.coop-headline h1 {
   margin: 0;
   font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: clamp(36px, 5vw, 64px);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
-  color: #0d586e;
+  font-size: clamp(38px, 5vw, 68px);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+  color: #5a2d19;
 }
 
-.reef-summary {
-  width: min(100%, 700px);
+.coop-summary {
+  width: min(100%, 760px);
   margin: 0;
-  color: rgba(23, 86, 105, 0.82);
+  color: rgba(90, 45, 25, 0.78);
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
-.reef-stage-card,
-.reef-panel {
+.coop-stage-card,
+.coop-panel {
   position: relative;
   overflow: hidden;
   border-radius: 28px;
-  border: 1px solid var(--reef-bed-border);
-  background: var(--reef-bed-panel);
+  border: 1px solid var(--coop-panel-border);
+  background: var(--coop-panel-bg);
   box-shadow:
-    0 22px 50px var(--reef-bed-shadow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    0 24px 52px var(--coop-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
 }
 
-.reef-stage-card::before,
-.reef-panel::before {
+.coop-stage-card::before,
+.coop-panel::before {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.3) 0%, transparent 28%),
-    radial-gradient(circle at bottom left, rgba(94, 180, 214, 0.18) 0%, transparent 30%);
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.28) 0%, transparent 26%),
+    radial-gradient(circle at bottom left, rgba(214, 134, 65, 0.14) 0%, transparent 36%);
   pointer-events: none;
 }
 
-.reef-stage-card {
+.coop-stage-card {
   padding: 14px;
 }
 
-.reef-stage-column {
-  min-width: 0;
-}
-
-.reef-stage-topline {
+.coop-stage-topline {
   display: flex;
   justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 10px;
-  color: var(--reef-bed-text-faint);
+  gap: 12px;
+  margin-bottom: 12px;
+  color: rgba(98, 59, 34, 0.72);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.reef-stage-scorebar {
-  margin-bottom: 12px;
-}
-
-.reef-stage-scorebar__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.reef-stage-meter-card {
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: var(--reef-bed-panel-soft);
-  border: 1px solid rgba(84, 144, 170, 0.16);
-}
-
-.reef-canvas-shell {
+.coop-canvas-shell {
   position: relative;
-  width: min(100%, calc((100vh - 170px) * 1.58));
-  margin: 0 auto;
+  width: min(100%, calc((100vh - 200px) * 1.58));
+  margin: 0 auto 0 0;
+  transform: translateX(-14px);
   border-radius: 24px;
   overflow: hidden;
-  border: 1px solid rgba(163, 246, 252, 0.2);
-  background: rgba(2, 20, 27, 0.78);
+  border: 1px solid rgba(130, 73, 38, 0.2);
+  background: rgba(58, 31, 18, 0.8);
 }
 
-.reef-canvas {
+.coop-canvas {
   display: block;
   width: 100%;
   aspect-ratio: 980 / 620;
   height: auto;
-  image-rendering: auto;
 }
 
-.reef-loading-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  width: 100%;
-  aspect-ratio: 980 / 620;
-  padding: 24px;
+.coop-loader-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
   background:
-    radial-gradient(circle at top, rgba(154, 225, 249, 0.26), transparent 36%),
-    linear-gradient(180deg, rgba(27, 123, 161, 0.24) 0%, rgba(9, 39, 58, 0.18) 100%),
-    rgba(200, 233, 244, 0.96);
+    radial-gradient(circle at 50% 28%, rgba(255, 239, 192, 0.16) 0%, transparent 32%),
+    linear-gradient(180deg, rgba(41, 22, 12, 0.88) 0%, rgba(71, 39, 22, 0.92) 100%);
+  z-index: 2;
+}
+
+.coop-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 236, 190, 0.12) 0%, transparent 34%),
+    linear-gradient(180deg, rgba(34, 18, 10, 0.78) 0%, rgba(68, 36, 20, 0.84) 100%);
+  z-index: 2;
+}
+
+.coop-lock-card {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 10px;
+  padding: 24px 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 222, 175, 0.16);
+  background: rgba(76, 41, 23, 0.9);
+  box-shadow:
+    0 24px 40px rgba(22, 12, 6, 0.26),
+    inset 0 1px 0 rgba(255, 247, 228, 0.1);
   text-align: center;
 }
 
-.reef-loading-stage strong {
-  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: clamp(24px, 3vw, 34px);
-  letter-spacing: -0.04em;
-  color: #20556d;
+.coop-lock-card strong {
+  color: #fff5e2;
+  font-size: 22px;
+  line-height: 1.05;
 }
 
-.reef-loading-stage p {
-  width: min(100%, 460px);
+.coop-lock-card p {
   margin: 0;
-  color: rgba(43, 92, 115, 0.88);
+  color: rgba(255, 229, 188, 0.84);
+  font-size: 14px;
   line-height: 1.5;
 }
 
-.reef-loading-spinner {
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  border: 4px solid rgba(93, 167, 198, 0.22);
-  border-top-color: #4ca5cb;
-  animation: reef-spin 0.9s linear infinite;
+.coop-loader-card {
+  width: min(100%, 320px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 22px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 220, 166, 0.16);
+  background: rgba(82, 45, 25, 0.88);
+  box-shadow:
+    0 24px 38px rgba(22, 12, 6, 0.24),
+    inset 0 1px 0 rgba(255, 247, 228, 0.1);
+  text-align: center;
 }
 
-@keyframes reef-spin {
+.coop-loader-card strong {
+  color: #fff6e4;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.coop-loader-card span {
+  color: rgba(255, 231, 193, 0.82);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.coop-loader-spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 227, 180, 0.18);
+  border-top-color: #ffd890;
+  animation: coop-spin 0.9s linear infinite;
+}
+
+@keyframes coop-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.reef-field-action-overlay {
+.coop-field-hud {
   position: absolute;
-  inset: auto 16px 40px;
-  display: flex;
-  justify-content: center;
-}
-
-.reef-field-action-card {
-  width: min(100%, 520px);
+  top: 16px;
+  right: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 22px;
-  border: 1px solid rgba(84, 144, 170, 0.18);
-  background: rgba(214, 237, 246, 0.92);
+  gap: 7px;
+  width: min(118px, calc(100% - 10px));
+  transform: scaleX(0.78);
+  transform-origin: top right;
+  pointer-events: none;
+}
+
+.coop-field-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 62px;
+  padding: 6px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 221, 172, 0.12);
+  background: rgba(62, 34, 20, 0.84);
   box-shadow:
-    0 18px 42px rgba(63, 111, 138, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
-  backdrop-filter: blur(10px);
-}
-
-.reef-field-action-button {
-  width: 100%;
-}
-
-.reef-field-action-copy {
-  text-align: center;
-}
-
-.reef-lock-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  padding: clamp(18px, 3vw, 28px);
-  background: rgba(206, 231, 242, 0.8);
-  text-align: center;
+    0 12px 24px rgba(28, 14, 7, 0.18),
+    inset 0 1px 0 rgba(255, 246, 220, 0.1);
   backdrop-filter: blur(8px);
 }
 
-.reef-lock-overlay strong {
-  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: clamp(24px, 3vw, 34px);
-  letter-spacing: -0.04em;
+.coop-field-metric span {
+  color: rgba(249, 224, 180, 0.76);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.reef-lock-overlay p {
-  width: min(100%, 560px);
-  margin: 0 auto;
-  color: var(--reef-bed-text-soft);
-  line-height: 1.5;
+.coop-field-metric strong {
+  color: #fff8ef;
+  font-size: 24px;
+  line-height: 0.94;
 }
 
-.reef-sidebar {
-  padding-top: 2px;
+.coop-field-metric-alert {
+  border-color: rgba(255, 197, 140, 0.28);
+  background: rgba(128, 43, 23, 0.88);
 }
 
-.reef-panel {
-  padding: 18px;
+.coop-controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 70, 36, 0.12);
+  background: rgba(255, 247, 229, 0.76);
+  color: rgba(84, 47, 24, 0.82);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.coop-controls-bar span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(145, 84, 43, 0.08);
+}
+
+.coop-stage-banner {
+  position: absolute;
+  inset: 18px 18px auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 210, 140, 0.18);
+  background: rgba(78, 43, 25, 0.86);
+  color: #fff4dd;
+  backdrop-filter: blur(8px);
 }
 
-.reef-panel h2 {
-  margin: 0;
-  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: 19px;
-  letter-spacing: -0.04em;
-  color: var(--reef-bed-text);
-}
-
-.reef-panel p {
-  margin: 0;
-  color: var(--reef-bed-text-soft);
-  line-height: 1.45;
+.coop-stage-banner strong {
   font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.reef-stat-grid {
+.coop-stage-banner span {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.coop-action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.coop-action-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.coop-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.coop-primary-button,
+.coop-secondary-button {
+  border: 0;
+  border-radius: 18px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.coop-primary-button {
+  color: #fff8ef;
+  background: linear-gradient(180deg, #c86b2a 0%, #9e4a1b 100%);
+  box-shadow: 0 14px 26px rgba(143, 70, 28, 0.28);
+}
+
+.coop-secondary-button {
+  color: #5f321a;
+  background: rgba(255, 244, 220, 0.88);
+  border: 1px solid rgba(125, 60, 21, 0.16);
+}
+
+.coop-primary-button:hover:not(:disabled),
+.coop-secondary-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.coop-primary-button:disabled,
+.coop-secondary-button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.coop-button-note {
+  margin: 0;
+  flex: 0 0 auto;
+  color: var(--coop-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.coop-panel {
+  padding: 18px;
+}
+
+.coop-chain-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.reef-stat {
-  padding: 13px;
-  border-radius: 18px;
-  background: var(--reef-bed-panel-soft);
-  border: 1px solid rgba(84, 144, 170, 0.16);
+.coop-panel h2 {
+  margin: 0 0 12px;
+  color: #552e18;
+  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
 
-.reef-stat span {
+.coop-panel > h2 + p {
+  margin-top: 0;
+}
+
+.coop-rule-list,
+.coop-help-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.coop-rule-item,
+.coop-help-card {
+  position: relative;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 248, 232, 0.74);
+  border: 1px solid rgba(120, 67, 37, 0.1);
+}
+
+.coop-rule-item strong,
+.coop-help-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #552e18;
+  font-size: 14px;
+}
+
+.coop-rule-item span,
+.coop-help-card span {
+  color: var(--coop-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.coop-gate-card {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(92, 52, 30, 0.92) 0%, rgba(69, 37, 20, 0.94) 100%);
+  color: #fff4dd;
+}
+
+.coop-gate-card span {
   display: block;
   margin-bottom: 6px;
-  color: var(--reef-bed-text-faint);
+  color: rgba(255, 236, 189, 0.72);
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.reef-stat strong {
-  display: block;
-  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: clamp(18px, 2vw, 26px);
-  letter-spacing: -0.04em;
-  color: var(--reef-bed-text);
+.coop-gate-card strong {
+  font-size: 15px;
+  line-height: 1.45;
 }
 
-.reef-meter {
-  display: flex;
-  flex-direction: column;
+.coop-help-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.coop-wallet-widget {
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(120, 67, 37, 0.12);
+  background: rgba(255, 248, 232, 0.78);
+}
+
+.coop-wallet-widget > * {
+  width: 100%;
+}
+
+.coop-chain-submit {
+  width: 100%;
+}
+
+.coop-chain-empty,
+.coop-chain-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.coop-chain-empty {
+  color: var(--coop-muted);
+}
+
+.coop-chain-note {
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(120, 67, 37, 0.1);
+  background: rgba(255, 248, 232, 0.74);
+  color: #5b3420;
+}
+
+.coop-chain-note--idle,
+.coop-chain-note--neutral {
+  color: #6a4028;
+}
+
+.coop-chain-note--pending {
+  color: #8a4b1d;
+  background: rgba(255, 232, 183, 0.76);
+  border-color: rgba(196, 118, 42, 0.22);
+}
+
+.coop-chain-note--success {
+  color: #225b34;
+  background: rgba(228, 250, 229, 0.82);
+  border-color: rgba(63, 145, 84, 0.18);
+}
+
+.coop-chain-note--error {
+  color: #772d22;
+  background: rgba(255, 230, 224, 0.82);
+  border-color: rgba(172, 71, 46, 0.2);
+}
+
+.coop-chain-rows {
+  display: grid;
   gap: 8px;
 }
 
-.reef-meter__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--reef-bed-text);
-  font-weight: 700;
-}
-
-.reef-meter__track {
-  width: 100%;
-  height: 16px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(120, 179, 202, 0.2);
-  border: 1px solid rgba(84, 144, 170, 0.16);
-}
-
-.reef-meter__fill {
-  height: 100%;
-  border-radius: inherit;
-  transition: width 140ms linear;
-}
-
-.reef-meter__fill--saturation {
-  background: linear-gradient(90deg, #2cc7d8 0%, #79f4b2 100%);
-}
-
-.reef-meter__fill--growth {
-  background: linear-gradient(90deg, #ffd56a 0%, #ff8a3d 100%);
-}
-
-.reef-action {
-  width: 100%;
-  min-height: 50px;
-  border: none;
-  border-radius: 18px;
-  padding: 0 18px;
-  background:
-    linear-gradient(135deg, #a6f8ff 0%, #5ae2cc 46%, #1d9f8c 100%);
-  color: #05313a;
-  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: 16px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease;
-  box-shadow: 0 16px 30px rgba(18, 205, 188, 0.24);
-}
-
-.reef-action:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 36px rgba(18, 205, 188, 0.32);
-}
-
-.reef-action:disabled {
-  cursor: wait;
-  transform: none;
-  color: rgba(5, 49, 58, 0.72);
-  background:
-    linear-gradient(135deg, rgba(166, 248, 255, 0.7) 0%, rgba(90, 226, 204, 0.62) 46%, rgba(29, 159, 140, 0.68) 100%);
-  box-shadow: 0 10px 24px rgba(18, 205, 188, 0.12);
-}
-
-.reef-status-copy {
-  margin: 0;
-  color: var(--reef-bed-text-soft);
-  line-height: 1.48;
-  font-size: 14px;
-}
-
-.reef-wallet-widget {
-  padding: 14px;
-  border-radius: 18px;
-  background: var(--reef-bed-panel-soft);
-  border: 1px solid rgba(84, 144, 170, 0.16);
-}
-
-.reef-chain-panel {
-  gap: 14px;
-}
-
-.reef-chain-note {
-  min-height: 42px;
-}
-
-.reef-chain-note--success {
-  color: #abffd3;
-}
-
-.reef-chain-note--error {
-  color: #ffd0c2;
-}
-
-.reef-chain-empty {
-  margin: 0;
-  color: var(--reef-bed-text-soft);
-  line-height: 1.45;
-  font-size: 14px;
-}
-
-.reef-chain-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.reef-chain-row {
+.coop-chain-row {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--reef-bed-panel-soft);
-  border: 1px solid rgba(84, 144, 170, 0.16);
+  padding: 11px 12px;
+  border-radius: 18px;
+  background: rgba(255, 248, 232, 0.74);
+  border: 1px solid rgba(120, 67, 37, 0.1);
 }
 
-.reef-chain-row span,
-.reef-chain-row strong,
-.reef-chain-row em {
+.coop-chain-row span,
+.coop-chain-row em {
+  color: var(--coop-muted);
+  font-size: 13px;
+  font-style: normal;
+}
+
+.coop-chain-row span,
+.coop-chain-row strong,
+.coop-chain-row em {
   min-width: 0;
 }
 
-.reef-chain-row span {
-  color: var(--reef-bed-text-faint);
-  font-weight: 700;
-}
-
-.reef-chain-row strong {
+.coop-chain-row strong {
+  color: #552e18;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "Arial Black", "Franklin Gothic Medium", sans-serif;
-  font-size: 15px;
-  letter-spacing: -0.03em;
-  color: var(--reef-bed-text);
 }
 
-.reef-chain-row em {
-  font-style: normal;
-  color: var(--reef-bed-text-soft);
+.coop-chain-row.is-current {
+  background: rgba(255, 234, 188, 0.78);
+  border-color: rgba(189, 92, 36, 0.18);
 }
 
-.reef-chain-row.is-current {
-  border-color: rgba(91, 168, 202, 0.42);
-  background: rgba(196, 229, 243, 0.92);
-}
-
-@media (max-width: 1120px) {
-  .reef-shell {
+@media (max-width: 1260px) {
+  .coop-shell {
     grid-template-columns: 1fr;
   }
 
-  .reef-sidebar {
-    padding-top: 0;
+  .coop-canvas-shell {
+    width: 100%;
+    transform: translateX(-8px);
   }
 }
 
-@media (max-width: 720px) {
-  .reef-shell {
-    padding: 16px;
-    gap: 18px;
+@media (max-width: 860px) {
+  .coop-field-hud {
+    top: 12px;
+    right: 10px;
+    width: 100px;
+    gap: 7px;
+    transform: scaleX(0.82);
   }
 
-  .reef-stage-card,
-  .reef-panel {
-    border-radius: 22px;
+  .coop-field-metric {
+    min-height: 56px;
+    padding: 5px 6px;
+    border-radius: 11px;
   }
 
-  .reef-stage-topline {
-    flex-direction: column;
-    align-items: flex-start;
-    margin-bottom: 12px;
+  .coop-field-metric strong {
+    font-size: 20px;
   }
 
-  .reef-stage-scorebar__grid {
+  .coop-help-grid {
     grid-template-columns: 1fr;
   }
 
-  .reef-stat-grid {
-    grid-template-columns: 1fr;
+  .coop-lock-card {
+    width: min(100%, 360px);
+  }
+}
+
+@media (max-width: 640px) {
+  .coop-shell {
+    padding: 12px;
   }
 
-  .reef-headline h1 {
-    font-size: clamp(38px, 14vw, 62px);
+  .coop-headline h1 {
+    font-size: 46px;
+  }
+
+  .coop-stage-card,
+  .coop-panel {
+    border-radius: 24px;
+  }
+
+  .coop-field-hud {
+    width: 96px;
+    transform: scaleX(0.86);
+  }
+
+  .coop-field-metric {
+    min-height: 58px;
+    border-radius: 10px;
+  }
+
+  .coop-action-row {
+    align-items: stretch;
+  }
+
+  .coop-action-main {
+    align-items: stretch;
+  }
+
+  .coop-action-buttons {
+    width: 100%;
+  }
+
+  .coop-controls-bar {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .coop-controls-bar {
+    font-size: 12px;
+  }
+
+  .coop-primary-button,
+  .coop-secondary-button {
+    width: 100%;
   }
 }
