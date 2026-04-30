@@ -1,739 +1,774 @@
 import {
-  ENEMY_PADDING,
-  ENEMY_SPEED_BY_SIZE,
-  FISH_VISUAL_SIZES,
-  FIELD_HEIGHT,
-  FIELD_WIDTH,
-  BABY_FISH_REACTION_ANIMATION_MS,
-  GAME_OVER_OVERLAY_DELAY_MS,
-  GROWTH_REQUIREMENT_BY_SIZE,
-  HIGH_LEVEL_ENEMY_SPAWN_INTERVAL_MULTIPLIER,
-  HOOK_COOLDOWN_MS_MAX,
-  HOOK_COOLDOWN_MS_MIN,
-  HOOK_DROP_MS,
-  HOOK_HOLD_MS,
-  HOOK_MARGIN_X,
-  HOOK_METAL_HEIGHT,
-  HOOK_METAL_WIDTH,
-  HOOK_RISE_MS,
-  HOOK_START_Y,
-  HOOK_SWING_AMPLITUDE,
-  HOOK_SWING_SPEED,
-  HOOK_TARGET_Y_MAX,
-  HOOK_TARGET_Y_MIN,
-  HOOK_UNLOCK_SIZE,
-  HOOK_UNLOCK_TIME_MS,
-  HOOK_WARNING_MS,
-  MAX_FISH_SIZE,
-  MAX_FRAME_DELTA_MS,
-  MAX_LEVEL_8_ENEMIES,
-  MIN_FISH_SIZE,
-  PLAYER_BITE_ANIMATION_MS,
-  PLAYER_GROWTH_PULSE_MS,
-  PLAYER_GROWTH_THRESHOLD,
-  PLAYER_PADDING,
-  PLAYER_SATURATION_AFTER_GROWTH,
-  PLAYER_SPEED,
-  PLAYER_SPEED_BY_SIZE,
-  PLAYER_VISUAL_SATURATION_CHANGE_PER_SECOND,
-  PLANKTON_MAX_COUNT,
-  PLANKTON_POINTS,
-  PLANKTON_SPAWN_INTERVAL_MS,
-  SATURATION_DRAIN_PER_SECOND,
-  SATURATION_DRAIN_MULTIPLIER_BY_SIZE,
-  SPAWN_INTERVAL_DECAY,
-  SPAWN_INTERVAL_MS_MIN,
-  SPAWN_INTERVAL_MS_START,
+  CHICKEN_SIZE,
+  CHICKEN_LAY_DURATION_MS,
+  CHICKEN_LAY_EVENT_MS,
+  CHICKEN_LOST_PENALTY,
+  CHICKEN_RELIEVED_DURATION_MS,
+  CHICKEN_SCARED_START_DURATION_MS,
+  CHICKEN_STOLEN_DURATION_MS,
+  COMBO_EGG_POINTS,
+  COMBO_WINDOW_MS,
+  COLLECTOR_INTERACT_DISTANCE,
+  COLLECTOR_RECEIVE_DURATION_MS,
+  DIFFICULTY_INCREASE_EVERY_MS,
+  EARLY_SEQUENCE_WINDOW_MS,
+  EGG_CATCH_HEIGHT,
+  EGG_CATCH_OFFSET_X,
+  EGG_CATCH_OFFSET_Y,
+  EGG_CATCH_WIDTH,
+  EGG_POINTS,
+  EGG_RADIUS,
+  DEPOSIT_EGG_DROP_DURATION_MS,
+  FARMER_CATCH_DURATION_MS,
+  FARMER_DEPOSIT_DURATION_MS,
+  FARMER_FALL_DURATION_MS,
+  FARMER_FEET_RADIUS,
+  FARMER_GRAVITY,
+  FARMER_GROUND_Y,
+  FARMER_HEIGHT,
+  FARMER_RECOVER_DURATION_MS,
+  FARMER_SPEED,
+  FARMER_SLIP_DURATION_MS,
+  FARMER_THROW_DURATION_MS,
+  FARMER_WIDTH,
+  FOX_ATTACK_DELAY_MS,
+  FOX_APPEAR_DURATION_MS,
+  FOX_CARRY_UP_DURATION_MS,
+  FOX_HEIGHT,
+  FOX_HIT_DURATION_MS,
+  FOX_LICK_DURATION_MS,
+  FOX_OFFSET_Y,
+  FOX_RETREAT_DURATION_MS,
+  FOX_STEAL_DURATION_MS,
+  FOX_REPEL_POINTS,
+  FOX_WIDTH,
+  FLOOR_Y,
+  INITIAL_EGG_FALL_SPEED,
+  INITIAL_EGG_SPAWN_INTERVAL_MS,
+  MAX_BASKET_EGGS,
+  MAX_BROKEN_EGGS,
+  MAX_CHICKENS,
+  MAX_EGG_FALL_SPEED,
+  MIN_EGG_SPAWN_INTERVAL_MS,
+  MIN_EGGS_BETWEEN_FOXES,
+  PUDDLE_LIFETIME_MS,
+  PUDDLE_RADIUS,
+  THROWN_EGG_RADIUS,
+  THROWN_EGG_HIT_EFFECT_DURATION_MS,
+  THROWN_EGG_SPEED,
+  FARMER_JUMP_SPEED,
 } from "./constants";
-import type { EnemyFish, FishingHook, FishingHookPhase, GameState, InputState, Plankton } from "./types";
+import { MAX_COLLECTOR_VISUAL_EGGS, getCollectorFillState } from "./collector";
+import type {
+  Chicken,
+  ChickenAnimationName,
+  CollectorFillState,
+  Egg,
+  EggCollector,
+  EggPuddle,
+  EggVisualEffect,
+  Farmer,
+  FarmerAnimationName,
+  Fox,
+  FoxAnimationName,
+  GameOverReason,
+  GameState,
+  InputState,
+} from "./types";
+
+type EggVisualEffectInput =
+  | Omit<Extract<EggVisualEffect, { kind: "foxHit" }>, "id">
+  | Omit<Extract<EggVisualEffect, { kind: "depositDrop" }>, "id">;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function approach(current: number, target: number, maxStep: number) {
-  if (current < target) {
-    return Math.min(target, current + maxStep);
+function randomFrom<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function createId(state: GameState, prefix: string) {
+  const id = `${prefix}-${state.nextEntityId}`;
+  state.nextEntityId += 1;
+  return id;
+}
+
+function createEggEffect(
+  state: GameState,
+  effect: EggVisualEffectInput,
+) {
+  if (effect.kind === "depositDrop") {
+    state.eggEffects.push({
+      id: createId(state, "egg-effect"),
+      ...effect,
+    });
+    return;
   }
 
-  return Math.max(target, current - maxStep);
+  state.eggEffects.push({
+    id: createId(state, "egg-effect"),
+    ...effect,
+  });
 }
 
-export function getFishRadius(size: number) {
-  return getFishVisualSize(size).height / 2;
-}
-
-export function getFishVisualSize(size: number) {
-  const normalizedSize = clamp(Math.round(size), MIN_FISH_SIZE, MAX_FISH_SIZE);
-  return FISH_VISUAL_SIZES[normalizedSize];
-}
-
-function getFishHalfWidth(size: number) {
-  return getFishVisualSize(size).width / 2;
-}
-
-export function getPlanktonRadius(plankton: Pick<Plankton, "scale">) {
-  return 15 * plankton.scale;
-}
-
-function getSpawnInterval(timeMs: number) {
-  return Math.max(SPAWN_INTERVAL_MS_MIN, SPAWN_INTERVAL_MS_START - timeMs * SPAWN_INTERVAL_DECAY);
-}
-
-function getEnemySpawnInterval(timeMs: number, playerSize: number) {
-  const baseInterval = getSpawnInterval(timeMs);
-  return playerSize >= 5 ? baseInterval * HIGH_LEVEL_ENEMY_SPAWN_INTERVAL_MULTIPLIER : baseInterval;
-}
-
-function getPlanktonSpawnInterval(playerSize: number) {
-  return playerSize === MIN_FISH_SIZE ? PLANKTON_SPAWN_INTERVAL_MS : PLANKTON_SPAWN_INTERVAL_MS * 1.45;
-}
-
-function getScoreForFish(size: number) {
-  return 6 + size * 4;
-}
-
-function getGrowthRequirement(playerSize: number) {
-  const normalizedSize = clamp(Math.round(playerSize), MIN_FISH_SIZE, MAX_FISH_SIZE);
-  return GROWTH_REQUIREMENT_BY_SIZE[normalizedSize];
-}
-
-function getFoodGainPercent(points: number, playerSize: number) {
-  return (points / getGrowthRequirement(playerSize)) * PLAYER_GROWTH_THRESHOLD;
-}
-
-function getSaturationDrainPerSecond(playerSize: number) {
-  const normalizedSize = clamp(Math.round(playerSize), MIN_FISH_SIZE, MAX_FISH_SIZE);
-  return SATURATION_DRAIN_PER_SECOND * SATURATION_DRAIN_MULTIPLIER_BY_SIZE[normalizedSize];
-}
-
-function getPlayerSpeed(playerSize: number) {
-  const normalizedSize = clamp(Math.round(playerSize), MIN_FISH_SIZE, MAX_FISH_SIZE);
-  return PLAYER_SPEED_BY_SIZE[normalizedSize] ?? PLAYER_SPEED;
-}
-
-function smoothstep(value: number) {
-  const clamped = clamp(value, 0, 1);
-  return clamped * clamped * (3 - 2 * clamped);
-}
-
-function getHookPhaseDuration(phase: FishingHookPhase) {
-  if (phase === "warning") return HOOK_WARNING_MS;
-  if (phase === "dropping") return HOOK_DROP_MS;
-  if (phase === "holding") return HOOK_HOLD_MS;
-  return HOOK_RISE_MS;
-}
-
-function getNextHookPhase(phase: FishingHookPhase): FishingHookPhase | null {
-  if (phase === "warning") return "dropping";
-  if (phase === "dropping") return "holding";
-  if (phase === "holding") return "rising";
-  return null;
-}
-
-function getHookCooldown(random: () => number) {
-  return HOOK_COOLDOWN_MS_MIN + random() * (HOOK_COOLDOWN_MS_MAX - HOOK_COOLDOWN_MS_MIN);
-}
-
-function createFishingHook(random: () => number): FishingHook {
-  return {
-    x: HOOK_MARGIN_X + random() * (FIELD_WIDTH - HOOK_MARGIN_X * 2),
-    targetY: HOOK_TARGET_Y_MIN + random() * (HOOK_TARGET_Y_MAX - HOOK_TARGET_Y_MIN),
-    phase: "warning",
-    phaseMs: 0,
-    ageMs: 0,
-    swingSeed: random() * 1000,
+function setFarmerAnimation(state: GameState, name: FarmerAnimationName, now: number, durationMs: number) {
+  state.farmer.animation = {
+    name,
+    startedAt: now,
+    durationMs,
   };
 }
 
-function advanceFishingHook(hook: FishingHook, deltaMs: number): FishingHook | null {
-  let phase = hook.phase;
-  let phaseMs = hook.phaseMs + deltaMs;
-
-  while (phaseMs >= getHookPhaseDuration(phase)) {
-    phaseMs -= getHookPhaseDuration(phase);
-    const nextPhase = getNextHookPhase(phase);
-
-    if (!nextPhase) {
-      return null;
-    }
-
-    phase = nextPhase;
+function clearFinishedFarmerAnimation(state: GameState, now: number) {
+  const { animation } = state.farmer;
+  if (animation && now - animation.startedAt >= animation.durationMs) {
+    state.farmer.animation = null;
   }
-
-  hook.phase = phase;
-  hook.phaseMs = phaseMs;
-  hook.ageMs += deltaMs;
-
-  return hook;
 }
 
-export function getFishingHookPosition(hook: FishingHook) {
-  const swing = Math.sin((hook.ageMs + hook.swingSeed) * HOOK_SWING_SPEED) * HOOK_SWING_AMPLITUDE;
-  let y = HOOK_START_Y;
+function getAliveChickens(state: GameState) {
+  return state.chickens.filter((chicken) => chicken.alive);
+}
 
-  if (hook.phase === "dropping") {
-    y = HOOK_START_Y + (hook.targetY - HOOK_START_Y) * smoothstep(hook.phaseMs / HOOK_DROP_MS);
-  } else if (hook.phase === "holding") {
-    y = hook.targetY;
-  } else if (hook.phase === "rising") {
-    y = hook.targetY + (HOOK_START_Y - hook.targetY) * smoothstep(hook.phaseMs / HOOK_RISE_MS);
-  }
+function getChickenById(state: GameState, chickenId: string) {
+  return state.chickens.find((chicken) => chicken.id === chickenId);
+}
 
-  return {
-    x: hook.x + swing,
-    y,
+function setChickenAnimation(chicken: Chicken, name: ChickenAnimationName, now: number) {
+  chicken.animation = {
+    name,
+    startedAt: now,
+    eventTriggered: false,
   };
 }
 
-function getHueForFish(size: number) {
-  return clamp(196 - size * 18, 24, 196);
+function setFoxAnimation(fox: Fox, name: FoxAnimationName, now: number) {
+  fox.animation = {
+    name,
+    startedAt: now,
+  };
 }
 
-function getWeightedEnemySize(playerSize: number, timeMs: number, random: () => number, maxEnemySize = MAX_FISH_SIZE) {
-  const normalizedMaxSize = clamp(maxEnemySize, MIN_FISH_SIZE, MAX_FISH_SIZE);
-  const sizes = Array.from({ length: normalizedMaxSize - MIN_FISH_SIZE + 1 }, (_, index) => index + MIN_FISH_SIZE);
-  const earlyPhase = clamp(timeMs / 32000, 0, 1);
-  const highLevelVariety = clamp((playerSize - 4) / 4, 0, 1);
-  const weights = sizes.map((size) => {
-    const gap = size - playerSize;
+function isChickenFearAnimation(chicken: Chicken) {
+  return chicken.animation.name === "scaredStart" || chicken.animation.name === "scaredLoop";
+}
 
-    if (gap < 0) {
-      const distance = Math.abs(gap);
-      const normalWeight = Math.max(6, 20 - distance * 3);
-      const variedWeight = Math.max(9, 14 + Math.max(0, 8 - distance * 1.35) + earlyPhase * 3);
-      return normalWeight + (variedWeight - normalWeight) * highLevelVariety;
+function panicWholeCoop(state: GameState, now: number) {
+  for (const chicken of state.chickens) {
+    if (
+      !chicken.alive ||
+      chicken.pendingRemoval ||
+      chicken.animation.name === "layingEgg" ||
+      chicken.animation.name === "stolen"
+    ) {
+      continue;
     }
 
-    if (gap === 0) {
-      return 7 + earlyPhase * 2 + highLevelVariety * 2;
+    if (!isChickenFearAnimation(chicken)) {
+      setChickenAnimation(chicken, "scaredStart", now);
+    }
+  }
+}
+
+function calmCoopAfterFox(state: GameState, now: number, relievedChickenId?: string) {
+  for (const chicken of state.chickens) {
+    if (!chicken.alive || chicken.pendingRemoval || chicken.id === relievedChickenId) {
+      continue;
     }
 
-    if (gap === 1) {
-      return 1.8 + earlyPhase * 4.8 + highLevelVariety * 3.2;
+    if (isChickenFearAnimation(chicken)) {
+      setChickenAnimation(chicken, "idle", now);
     }
+  }
+}
 
-    if (gap === 2) {
-      return 0.6 + earlyPhase * 3.9 + highLevelVariety * 2.4;
+function createDepositEggDropEffect(state: GameState, now: number) {
+  const { collector } = state;
+  const targetX = collector.x + (Math.random() * 24 - 12);
+  const startX = targetX + (Math.random() * 6 - 3);
+
+  createEggEffect(state, {
+    kind: "depositDrop",
+    x: startX,
+    y: collector.y - collector.height / 2 - 30,
+    targetX,
+    targetY: collector.y - collector.height * 0.08 + Math.random() * 6,
+    startedAt: now,
+    durationMs: DEPOSIT_EGG_DROP_DURATION_MS,
+  });
+}
+
+function createCollectorFeedback(
+  state: GameState,
+  now: number,
+  pointsAwarded: number,
+  fromState: CollectorFillState,
+  toState: CollectorFillState,
+) {
+  state.collectorFeedback = {
+    startedAt: now,
+    durationMs: COLLECTOR_RECEIVE_DURATION_MS,
+    pointsAwarded,
+    fromState,
+    toState,
+  };
+}
+
+function updateCollectorVisualProgress(state: GameState, now: number, pointsAwarded: number) {
+  const fromState = getCollectorFillState(state.collectorVisualEggs);
+  state.collectorVisualEggs = Math.min(state.collectorVisualEggs + 1, MAX_COLLECTOR_VISUAL_EGGS);
+  const toState = getCollectorFillState(state.collectorVisualEggs);
+  createCollectorFeedback(state, now, pointsAwarded, fromState, toState);
+}
+
+function canChickenLayEgg(chicken: Chicken) {
+  return chicken.alive && !chicken.pendingRemoval && !chicken.threatenedByFox && chicken.animation.name === "idle";
+}
+
+function getFoxTargetChickens(state: GameState) {
+  return state.chickens.filter((chicken) => chicken.alive && !chicken.pendingRemoval);
+}
+
+function getFarmerBasketHitbox(farmer: Farmer) {
+  return {
+    x: farmer.x + farmer.facing * EGG_CATCH_OFFSET_X,
+    y: farmer.y + EGG_CATCH_OFFSET_Y,
+    width: EGG_CATCH_WIDTH,
+    height: EGG_CATCH_HEIGHT,
+  };
+}
+
+function isEggCollidingWithBasket(egg: Egg, farmer: Farmer) {
+  const hitbox = getFarmerBasketHitbox(farmer);
+  return (
+    Math.abs(egg.x - hitbox.x) <= hitbox.width / 2 + egg.radius &&
+    Math.abs(egg.y - hitbox.y) <= hitbox.height / 2 + egg.radius
+  );
+}
+
+function isEggHittingFox(egg: Egg, fox: Fox) {
+  return (
+    Math.abs(egg.x - fox.x) <= FOX_WIDTH * 0.32 + egg.radius &&
+    Math.abs(egg.y - fox.y) <= FOX_HEIGHT * 0.36 + egg.radius
+  );
+}
+
+function clearFoxThreat(chicken: Chicken | undefined) {
+  if (chicken) {
+    chicken.threatenedByFox = false;
+  }
+}
+
+function breakEggAt(state: GameState, x: number, now: number) {
+  state.brokenEggsCount += 1;
+  state.puddles.push({
+    id: createId(state, "puddle"),
+    x: clamp(x, 70, 910),
+    y: FLOOR_Y,
+    radius: PUDDLE_RADIUS,
+    createdAt: now,
+    slippedAt: null,
+    expiresAt: now + PUDDLE_LIFETIME_MS,
+  });
+}
+
+function removeBrokenThreats(state: GameState) {
+  state.chickens.forEach((chicken) => {
+    if (!chicken.alive) {
+      chicken.threatenedByFox = false;
     }
+  });
+}
 
-    return 0.14 + earlyPhase * Math.max(0.8, 2.8 - (gap - 3) * 0.45) + highLevelVariety * 0.9;
+function endGame(state: GameState, reason: GameOverReason) {
+  if (state.status === "gameOver") {
+    return;
+  }
+
+  state.status = "gameOver";
+  state.gameOverReason = reason;
+  state.fox = null;
+  state.chickens.forEach((chicken) => {
+    chicken.threatenedByFox = false;
+    if (isChickenFearAnimation(chicken)) {
+      setChickenAnimation(chicken, "idle", state.nowMs);
+    }
+  });
+}
+
+export function isFarmerNearCollector(farmer: Farmer, collector: EggCollector) {
+  return Math.abs(farmer.x - collector.x) <= collector.width / 2 + COLLECTOR_INTERACT_DISTANCE;
+}
+
+function updateFarmerFall(state: GameState, now: number) {
+  const { farmer } = state;
+
+  if (!farmer.isFallen) {
+    return;
+  }
+
+  if (farmer.fallenUntil !== null && now >= farmer.fallenUntil) {
+    farmer.isFallen = false;
+    farmer.fallenUntil = null;
+    setFarmerAnimation(state, "recover", now, FARMER_RECOVER_DURATION_MS);
+  }
+}
+
+function updateFarmerMovement(state: GameState, input: InputState, deltaSec: number) {
+  const { farmer } = state;
+
+  if (farmer.isFallen) {
+    farmer.vx = 0;
+    farmer.vy = 0;
+    farmer.isJumping = false;
+    farmer.y = FARMER_GROUND_Y;
+    return;
+  }
+
+  const horizontal = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  farmer.vx = horizontal * FARMER_SPEED;
+
+  if (horizontal !== 0) {
+    farmer.facing = horizontal > 0 ? 1 : -1;
+    farmer.walkCycleMs += deltaSec * 1000;
+  } else {
+    farmer.walkCycleMs = Math.max(0, farmer.walkCycleMs - deltaSec * 320);
+  }
+
+  if (input.jumpQueued && !farmer.isJumping) {
+    farmer.isJumping = true;
+    farmer.vy = -FARMER_JUMP_SPEED;
+  }
+
+  farmer.x = clamp(farmer.x + farmer.vx * deltaSec, FARMER_WIDTH / 2 + 10, 980 - FARMER_WIDTH / 2 - 10);
+
+  if (farmer.isJumping || farmer.y < FARMER_GROUND_Y) {
+    farmer.vy += FARMER_GRAVITY * deltaSec;
+    farmer.y += farmer.vy * deltaSec;
+
+    if (farmer.y >= FARMER_GROUND_Y) {
+      farmer.y = FARMER_GROUND_Y;
+      farmer.vy = 0;
+      farmer.isJumping = false;
+    }
+  } else {
+    farmer.y = FARMER_GROUND_Y;
+    farmer.vy = 0;
+  }
+}
+
+function depositEgg(state: GameState, now: number) {
+  const { farmer, collector, depositCombo } = state;
+
+  if (farmer.isFallen || farmer.basketEggs <= 0 || !isFarmerNearCollector(farmer, collector)) {
+    return;
+  }
+
+  farmer.basketEggs -= 1;
+  state.stats.depositedEggs += 1;
+  setFarmerAnimation(state, "deposit", now, FARMER_DEPOSIT_DURATION_MS);
+  createDepositEggDropEffect(state, now);
+
+  const timeSinceLastDeposit = now - depositCombo.lastDepositTime;
+  depositCombo.count = timeSinceLastDeposit <= COMBO_WINDOW_MS ? depositCombo.count + 1 : 1;
+  depositCombo.lastDepositTime = now;
+  depositCombo.activeUntil = now + COMBO_WINDOW_MS;
+
+  const pointsAwarded = depositCombo.count >= 5 ? COMBO_EGG_POINTS : EGG_POINTS;
+  state.score += pointsAwarded;
+  updateCollectorVisualProgress(state, now, pointsAwarded);
+}
+
+function hitFox(state: GameState) {
+  if (!state.fox || !state.fox.active) {
+    return;
+  }
+
+  const targetChicken = getChickenById(state, state.fox.targetChickenId);
+  clearFoxThreat(targetChicken);
+  calmCoopAfterFox(state, state.nowMs, targetChicken?.id);
+  if (targetChicken && targetChicken.alive && !targetChicken.pendingRemoval && targetChicken.animation.name !== "layingEgg") {
+    setChickenAnimation(targetChicken, "relieved", state.nowMs);
+  }
+  state.score += FOX_REPEL_POINTS;
+  state.stats.foxesRepelled += 1;
+  state.fox.active = false;
+  setFoxAnimation(state.fox, "hit", state.nowMs);
+}
+
+function throwEgg(state: GameState) {
+  const { farmer } = state;
+
+  if (farmer.isFallen || farmer.basketEggs <= 0) {
+    return;
+  }
+
+  farmer.basketEggs -= 1;
+  setFarmerAnimation(state, "throw", state.nowMs, FARMER_THROW_DURATION_MS);
+  state.thrownEggs.push({
+    id: createId(state, "thrown"),
+    x: farmer.x,
+    y: farmer.y - FARMER_HEIGHT * 0.38,
+    vy: -THROWN_EGG_SPEED,
+    radius: THROWN_EGG_RADIUS,
+    spawnedAt: state.nowMs,
+    sourceChickenId: "",
+    state: "thrown",
+  });
+}
+
+function maybeSpawnFox(state: GameState, now: number) {
+  if (state.fox || state.eggsLaidSinceLastFox < MIN_EGGS_BETWEEN_FOXES) {
+    return;
+  }
+
+  const availableChickens = getFoxTargetChickens(state);
+  if (availableChickens.length === 0) {
+    return;
+  }
+
+  state.chickens.forEach((chicken) => {
+    chicken.threatenedByFox = false;
   });
 
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
-  let threshold = random() * total;
-
-  for (let index = 0; index < sizes.length; index += 1) {
-    threshold -= weights[index];
-    if (threshold <= 0) {
-      return sizes[index];
-    }
-  }
-
-  return sizes[sizes.length - 1];
-}
-
-function createEnemyFish(nextEnemyId: number, playerSize: number, timeMs: number, random: () => number, maxEnemySize = MAX_FISH_SIZE): EnemyFish {
-  const size = getWeightedEnemySize(playerSize, timeMs, random, maxEnemySize);
-  const halfWidth = getFishHalfWidth(size);
-  const halfHeight = getFishRadius(size);
-  const spawnLeft = random() >= 0.5;
-  const direction = spawnLeft ? 1 : -1;
-  const x = spawnLeft ? -halfWidth - ENEMY_PADDING : FIELD_WIDTH + halfWidth + ENEMY_PADDING;
-  const baseY = clamp(random() * FIELD_HEIGHT, halfHeight + 18, FIELD_HEIGHT - halfHeight - 18);
-  const speed = (ENEMY_SPEED_BY_SIZE[size] ?? 70) + random() * 28 + Math.min(42, timeMs / 2200);
-  const driftAmplitude = 10 + random() * 14;
-  const driftPhase = random() * Math.PI * 2;
-  const driftSpeed = 1.2 + random() * 2;
-
-  return {
-    id: `enemy-${nextEnemyId}`,
-    x,
-    y: baseY,
-    baseY,
-    size,
-    speed,
-    direction,
-    driftAmplitude,
-    driftPhase,
-    driftSpeed,
-    points: getScoreForFish(size),
-    hue: getHueForFish(size),
-    reactionAnimationMs: 0,
+  const targetChicken = randomFrom(availableChickens);
+  targetChicken.threatenedByFox = true;
+  panicWholeCoop(state, now);
+  state.eggsLaidSinceLastFox = 0;
+  state.fox = {
+    id: createId(state, "fox"),
+    x: targetChicken.x,
+    y: targetChicken.y - FOX_OFFSET_Y,
+    targetChickenId: targetChicken.id,
+    appearedAt: now,
+    attackAt: now + FOX_ATTACK_DELAY_MS,
+    active: true,
+    animation: {
+      name: "appear",
+      startedAt: now,
+    },
   };
 }
 
-function createPlankton(nextPlanktonId: number, random: () => number): Plankton {
-  const scale = 0.74 + random() * 0.42;
-  const radius = getPlanktonRadius({ scale });
-  const spawnLeft = random() >= 0.5;
-  const direction = spawnLeft ? 1 : -1;
-  const x = spawnLeft ? -radius - ENEMY_PADDING * 0.45 : FIELD_WIDTH + radius + ENEMY_PADDING * 0.45;
-  const baseY = clamp(random() * FIELD_HEIGHT, radius + 28, FIELD_HEIGHT - radius - 92);
+function spawnEggFromChicken(state: GameState, chicken: Chicken, now: number) {
+  state.eggs.push({
+    id: createId(state, "egg"),
+    x: chicken.x + (Math.random() * 16 - 8),
+    y: chicken.y + CHICKEN_SIZE * 0.62,
+    vy: state.eggFallSpeed * (0.92 + Math.random() * 0.18),
+    radius: EGG_RADIUS,
+    spawnedAt: now,
+    sourceChickenId: chicken.id,
+    state: "falling",
+  });
 
-  return {
-    id: `plankton-${nextPlanktonId}`,
-    x,
-    y: baseY,
-    baseY,
-    speed: 32 + random() * 28,
-    direction,
-    driftAmplitude: 18 + random() * 26,
-    driftPhase: random() * Math.PI * 2,
-    driftSpeed: 0.75 + random() * 1.35,
-    points: PLANKTON_POINTS,
-    scale,
-  };
+  state.eggsLaidTotal += 1;
+  state.eggsLaidSinceLastFox += 1;
+  maybeSpawnFox(state, now);
 }
 
-function normalizeMovement(input: InputState) {
-  const horizontal = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const vertical = (input.down ? 1 : 0) - (input.up ? 1 : 0);
-
-  if (horizontal === 0 && vertical === 0) {
-    return null;
-  }
-
-  const length = Math.hypot(horizontal, vertical) || 1;
-  return {
-    x: horizontal / length,
-    y: vertical / length,
-  };
-}
-
-function getPointerMovement(
-  playerX: number,
-  playerY: number,
-  pointer: { x: number; y: number } | null,
-  deltaSec: number,
-  playerSpeed: number,
-) {
-  if (!pointer) return null;
-
-  const dx = pointer.x - playerX;
-  const dy = pointer.y - playerY;
-  const distance = Math.hypot(dx, dy);
-
-  if (distance < 6) {
-    return null;
-  }
-
-  const maxStep = playerSpeed * deltaSec;
-  const scale = Math.min(1, maxStep / distance);
-  return {
-    x: dx * scale,
-    y: dy * scale,
-  };
-}
-
-function resolveFacing(currentFacing: -1 | 1, horizontalMovement: number) {
-  if (Math.abs(horizontalMovement) < 0.05) {
-    return currentFacing;
-  }
-
-  return horizontalMovement > 0 ? 1 : -1;
-}
-
-function updatePlayerPosition(state: GameState, input: InputState, deltaSec: number) {
-  const halfWidth = getFishHalfWidth(state.player.size);
-  const halfHeight = getFishRadius(state.player.size);
-  const playerSpeed = getPlayerSpeed(state.player.size);
-  const keyboardDirection = normalizeMovement(input);
-
-  if (keyboardDirection) {
-    return {
-      x: clamp(state.player.x + keyboardDirection.x * playerSpeed * deltaSec, halfWidth + PLAYER_PADDING, FIELD_WIDTH - halfWidth - PLAYER_PADDING),
-      y: clamp(state.player.y + keyboardDirection.y * playerSpeed * deltaSec, halfHeight + PLAYER_PADDING, FIELD_HEIGHT - halfHeight - PLAYER_PADDING),
-      facing: resolveFacing(state.player.facing, keyboardDirection.x),
-    };
-  }
-
-  const pointerStep = getPointerMovement(state.player.x, state.player.y, input.pointer, deltaSec, playerSpeed);
-  if (!pointerStep) {
-    return {
-      x: state.player.x,
-      y: state.player.y,
-      facing: state.player.facing,
-    };
-  }
-
-  return {
-    x: clamp(state.player.x + pointerStep.x, halfWidth + PLAYER_PADDING, FIELD_WIDTH - halfWidth - PLAYER_PADDING),
-    y: clamp(state.player.y + pointerStep.y, halfHeight + PLAYER_PADDING, FIELD_HEIGHT - halfHeight - PLAYER_PADDING),
-    facing: resolveFacing(state.player.facing, pointerStep.x),
-  };
-}
-
-function overlapsPlayer(playerX: number, playerY: number, playerSize: number, enemy: EnemyFish) {
-  const playerVisualSize = getFishVisualSize(playerSize);
-  const enemyVisualSize = getFishVisualSize(enemy.size);
-  const horizontalRadius = playerVisualSize.width * 0.36 + enemyVisualSize.width * 0.36;
-  const verticalRadius = playerVisualSize.height * 0.34 + enemyVisualSize.height * 0.34;
-  const normalizedX = Math.abs(playerX - enemy.x) / horizontalRadius;
-  const normalizedY = Math.abs(playerY - enemy.y) / verticalRadius;
-
-  return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
-}
-
-function overlapsPlayerMouth(
-  playerX: number,
-  playerY: number,
-  playerSize: number,
-  playerFacing: -1 | 1,
-  targetX: number,
-  targetY: number,
-  targetRadius: number,
-) {
-  const visualSize = getFishVisualSize(playerSize);
-  const mouthX = playerX + playerFacing * visualSize.width * 0.32;
-  const mouthY = playerY;
-  const mouthRadius = Math.max(visualSize.height * 0.3, 14);
-  const dx = targetX - mouthX;
-  const dy = targetY - mouthY;
-  const isInFront = playerFacing === -1
-    ? targetX <= playerX + visualSize.width * 0.02
-    : targetX >= playerX - visualSize.width * 0.02;
-
-  return isInFront && Math.hypot(dx, dy) <= mouthRadius + targetRadius;
-}
-
-function overlapsPlayerPoint(playerX: number, playerY: number, playerSize: number, pointX: number, pointY: number, pointRadius: number) {
-  const visualSize = getFishVisualSize(playerSize);
-  const radius = visualSize.height * 0.3;
-  const bodyHalfLength = Math.max(0, visualSize.width * 0.34 - radius);
-  const horizontalGap = Math.max(0, Math.abs(playerX - pointX) - bodyHalfLength);
-  const verticalGap = Math.abs(playerY - pointY);
-
-  return Math.hypot(horizontalGap, verticalGap) <= radius + pointRadius;
-}
-
-function overlapsFishingHook(playerX: number, playerY: number, playerSize: number, hook: FishingHook) {
-  if (hook.phase === "warning") {
-    return false;
-  }
-
-  const hookPosition = getFishingHookPosition(hook);
-  const width = HOOK_METAL_WIDTH;
-  const height = HOOK_METAL_HEIGHT;
-  const dangerPoints = [
-    { x: hookPosition.x, y: hookPosition.y - height * 0.34, radius: width * 0.24 },
-    { x: hookPosition.x + width * 0.14, y: hookPosition.y + height * 0.04, radius: width * 0.26 },
-    { x: hookPosition.x - width * 0.26, y: hookPosition.y + height * 0.34, radius: width * 0.2 },
-  ];
-
-  return dangerPoints.some((point) => overlapsPlayerPoint(playerX, playerY, playerSize, point.x, point.y, point.radius));
-}
-
-function canEatEnemyFish(playerSize: number, enemySize: number) {
-  return enemySize < playerSize;
-}
-
-function overlapsPlanktonMouth(playerX: number, playerY: number, playerSize: number, playerFacing: -1 | 1, plankton: Plankton) {
-  const visualSize = getFishVisualSize(playerSize);
-  const mouthX = playerX + playerFacing * visualSize.width * 0.34;
-  const mouthY = playerY;
-  const mouthRadius = Math.max(visualSize.height * 0.34, 17);
-  const planktonRadius = getPlanktonRadius(plankton);
-  const dx = plankton.x - mouthX;
-  const dy = plankton.y - mouthY;
-  const isNearFrontHalf = playerFacing === -1
-    ? plankton.x <= playerX + visualSize.width * 0.06
-    : plankton.x >= playerX - visualSize.width * 0.06;
-
-  return isNearFrontHalf && Math.hypot(dx, dy) <= mouthRadius + planktonRadius * 0.95;
-}
-
-export function stepGame(
-  state: GameState,
-  input: InputState,
-  deltaMs: number,
-  random: () => number = Math.random,
-): GameState {
-  const boundedDeltaMs = Math.min(MAX_FRAME_DELTA_MS, deltaMs);
-  const deltaSec = boundedDeltaMs / 1000;
-  const nextTimeMs = state.timeMs + boundedDeltaMs;
-
-  const isGrowthTransformActive = state.player.growthPulseMs > 0 && state.player.growthTargetSize !== null;
-  const decayedGrowthPulseMs = Math.max(0, state.player.growthPulseMs - boundedDeltaMs);
-
-  if (state.status !== "playing") {
-    if (state.status === "over" && state.gameOverOverlayDelayMs > 0) {
-      state.timeMs = nextTimeMs;
-      state.gameOverOverlayDelayMs = Math.max(0, state.gameOverOverlayDelayMs - boundedDeltaMs);
-      state.player.growthPulseMs = decayedGrowthPulseMs;
-      return state;
+function updateChickenAnimations(state: GameState, now: number) {
+  for (const chicken of state.chickens) {
+    if (!chicken.alive && !chicken.pendingRemoval) {
+      continue;
     }
 
-    return state;
-  }
+    const elapsed = now - chicken.animation.startedAt;
 
-  const decayedBiteAnimationMs = Math.max(0, state.player.biteAnimationMs - boundedDeltaMs);
-
-  if (isGrowthTransformActive) {
-    if (decayedGrowthPulseMs <= 0 && state.player.growthTargetSize !== null) {
-      const evolvedSize = state.player.growthTargetSize;
-      state.player.size = evolvedSize;
-      state.player.saturation = PLAYER_SATURATION_AFTER_GROWTH;
-      state.player.visualSaturation = PLAYER_SATURATION_AFTER_GROWTH;
-      state.player.growthProgress = evolvedSize >= MAX_FISH_SIZE ? PLAYER_GROWTH_THRESHOLD : 0;
-      state.player.biteAnimationMs = 0;
-      state.player.growthPulseMs = 0;
-      state.player.growthTargetSize = null;
-      return state;
-    }
-
-    state.player.biteAnimationMs = 0;
-    state.player.growthPulseMs = decayedGrowthPulseMs;
-    return state;
-  }
-
-  let nextSaturation = state.player.saturation - getSaturationDrainPerSecond(state.player.size) * deltaSec;
-
-  if (nextSaturation <= 0) {
-    state.status = "over";
-    state.reason = "starvation";
-    state.timeMs = nextTimeMs;
-    state.gameOverOverlayDelayMs = 0;
-    state.player.saturation = 0;
-    state.player.visualSaturation = approach(state.player.visualSaturation, 0, PLAYER_VISUAL_SATURATION_CHANGE_PER_SECOND * deltaSec);
-    state.player.biteAnimationMs = decayedBiteAnimationMs;
-    state.player.growthPulseMs = decayedGrowthPulseMs;
-    state.player.growthTargetSize = null;
-    return state;
-  }
-
-  const nextPlayerPosition = updatePlayerPosition(state, input, deltaSec);
-  let hook = state.hook;
-  let hookCooldownMs = state.hookCooldownMs;
-
-  if (hook) {
-    hook = advanceFishingHook(hook, boundedDeltaMs);
-
-    if (!hook) {
-      hookCooldownMs = getHookCooldown(random);
-    }
-  } else if (nextTimeMs >= HOOK_UNLOCK_TIME_MS || state.player.size >= HOOK_UNLOCK_SIZE) {
-    hookCooldownMs -= boundedDeltaMs;
-
-    if (hookCooldownMs <= 0) {
-      hook = createFishingHook(random);
-      hookCooldownMs = getHookCooldown(random);
-    }
-  }
-
-  let spawnCooldownMs = state.spawnCooldownMs - boundedDeltaMs;
-  let planktonSpawnCooldownMs = state.planktonSpawnCooldownMs - boundedDeltaMs;
-  let nextEnemyId = state.nextEnemyId;
-  let nextPlanktonId = state.nextPlanktonId;
-  const enemies = state.enemies;
-  let level8EnemyCount = 0;
-  let enemyWriteIndex = 0;
-
-  for (let index = 0; index < enemies.length; index += 1) {
-    const enemy = enemies[index];
-    const halfHeight = getFishRadius(enemy.size);
-    enemy.driftPhase += enemy.driftSpeed * deltaSec;
-    enemy.x += enemy.direction * enemy.speed * deltaSec;
-    enemy.y = clamp(enemy.baseY + Math.sin(enemy.driftPhase) * enemy.driftAmplitude, halfHeight, FIELD_HEIGHT - halfHeight);
-    enemy.reactionAnimationMs = Math.max(0, enemy.reactionAnimationMs - boundedDeltaMs);
-
-    if (enemy.x > -getFishHalfWidth(enemy.size) - ENEMY_PADDING * 2 && enemy.x < FIELD_WIDTH + getFishHalfWidth(enemy.size) + ENEMY_PADDING * 2) {
-      enemies[enemyWriteIndex] = enemy;
-      enemyWriteIndex += 1;
-      if (enemy.size === MAX_FISH_SIZE) {
-        level8EnemyCount += 1;
+    if (chicken.animation.name === "layingEgg") {
+      if (!chicken.animation.eventTriggered && elapsed >= CHICKEN_LAY_EVENT_MS) {
+        chicken.animation.eventTriggered = true;
+        spawnEggFromChicken(state, chicken, now);
       }
+
+      if (elapsed >= CHICKEN_LAY_DURATION_MS) {
+        if (state.fox?.active) {
+          setChickenAnimation(chicken, "scaredStart", now);
+        } else {
+          setChickenAnimation(chicken, "idle", now);
+        }
+      }
+
+      continue;
+    }
+
+    if (chicken.animation.name === "scaredStart" && elapsed >= CHICKEN_SCARED_START_DURATION_MS) {
+      setChickenAnimation(chicken, "scaredLoop", now);
+      continue;
+    }
+
+    if (chicken.animation.name === "relieved" && elapsed >= CHICKEN_RELIEVED_DURATION_MS) {
+      setChickenAnimation(chicken, "idle", now);
+      continue;
+    }
+
+    if (chicken.animation.name === "stolen" && elapsed >= CHICKEN_STOLEN_DURATION_MS) {
+      chicken.alive = false;
+      chicken.pendingRemoval = false;
+      chicken.threatenedByFox = false;
+      setChickenAnimation(chicken, "idle", now);
     }
   }
+}
 
-  enemies.length = enemyWriteIndex;
+function updateEggSpawning(state: GameState, now: number) {
+  if (state.fox) {
+    return;
+  }
 
-  const plankton = state.plankton;
-  let planktonWriteIndex = 0;
+  if (state.chickens.some((chicken) => chicken.animation.name === "layingEgg")) {
+    return;
+  }
 
-  for (let index = 0; index < plankton.length; index += 1) {
-    const food = plankton[index];
-    food.driftPhase += food.driftSpeed * deltaSec;
-    food.x += food.direction * food.speed * deltaSec;
-    food.y = clamp(food.baseY + Math.sin(food.driftPhase) * food.driftAmplitude, getPlanktonRadius(food), FIELD_HEIGHT - getPlanktonRadius(food) - 84);
+  if (now - state.lastEggSpawnTime < state.eggSpawnIntervalMs) {
+    return;
+  }
 
-    if (food.x > -getPlanktonRadius(food) - ENEMY_PADDING && food.x < FIELD_WIDTH + getPlanktonRadius(food) + ENEMY_PADDING) {
-      plankton[planktonWriteIndex] = food;
-      planktonWriteIndex += 1;
+  const availableChickens = state.chickens.filter(canChickenLayEgg);
+  if (availableChickens.length === 0) {
+    return;
+  }
+
+  const chicken =
+    state.elapsedMs < EARLY_SEQUENCE_WINDOW_MS
+      ? availableChickens[state.nextChickenIndex++ % availableChickens.length]
+      : randomFrom(availableChickens);
+
+  setChickenAnimation(chicken, "layingEgg", now);
+  state.lastEggSpawnTime = now;
+}
+
+function updateEggs(state: GameState, deltaSec: number, now: number) {
+  const nextEggs: Egg[] = [];
+
+  for (const egg of state.eggs) {
+    egg.y += egg.vy * deltaSec;
+
+    if (!state.farmer.isFallen && isEggCollidingWithBasket(egg, state.farmer)) {
+      if (state.farmer.basketEggs < MAX_BASKET_EGGS) {
+        state.farmer.basketEggs += 1;
+        state.stats.caughtEggs += 1;
+        setFarmerAnimation(state, "catch", now, FARMER_CATCH_DURATION_MS);
+      } else {
+        breakEggAt(state, egg.x, now);
+      }
+      continue;
     }
-  }
 
-  plankton.length = planktonWriteIndex;
-
-  while (spawnCooldownMs <= 0) {
-    const maxEnemySize = level8EnemyCount >= MAX_LEVEL_8_ENEMIES ? MAX_FISH_SIZE - 1 : MAX_FISH_SIZE;
-    const enemy = createEnemyFish(nextEnemyId, state.player.size, nextTimeMs, random, maxEnemySize);
-    enemies.push(enemy);
-    if (enemy.size === MAX_FISH_SIZE) {
-      level8EnemyCount += 1;
+    if (egg.y + egg.radius >= FLOOR_Y) {
+      breakEggAt(state, egg.x, now);
+      continue;
     }
-    nextEnemyId += 1;
-    spawnCooldownMs += getEnemySpawnInterval(nextTimeMs, state.player.size);
+
+    nextEggs.push(egg);
   }
 
-  while (planktonSpawnCooldownMs <= 0) {
-    if (plankton.length < PLANKTON_MAX_COUNT) {
-      plankton.push(createPlankton(nextPlanktonId, random));
-      nextPlanktonId += 1;
+  state.eggs = nextEggs;
+}
+
+function updateThrownEggs(state: GameState, deltaSec: number) {
+  const nextEggs: Egg[] = [];
+
+  for (const egg of state.thrownEggs) {
+    egg.y += egg.vy * deltaSec;
+
+    if (state.fox?.active && isEggHittingFox(egg, state.fox)) {
+      createEggEffect(state, {
+        x: state.fox.x,
+        y: state.fox.y + 8,
+        kind: "foxHit",
+        startedAt: state.nowMs,
+        durationMs: THROWN_EGG_HIT_EFFECT_DURATION_MS,
+      });
+      hitFox(state);
+      continue;
     }
-    planktonSpawnCooldownMs += getPlanktonSpawnInterval(state.player.size);
+
+    if (egg.y + egg.radius < -20) {
+      continue;
+    }
+
+    nextEggs.push(egg);
   }
 
-  if (hook && overlapsFishingHook(nextPlayerPosition.x, nextPlayerPosition.y, state.player.size, hook)) {
-    state.status = "over";
-    state.reason = "hook";
-    state.timeMs = nextTimeMs;
-    state.spawnCooldownMs = spawnCooldownMs;
-    state.planktonSpawnCooldownMs = planktonSpawnCooldownMs;
-    state.hook = hook;
-    state.hookCooldownMs = hookCooldownMs;
-    state.nextEnemyId = nextEnemyId;
-    state.nextPlanktonId = nextPlanktonId;
-    state.gameOverOverlayDelayMs = 0;
-    state.player.x = nextPlayerPosition.x;
-    state.player.y = nextPlayerPosition.y;
-    state.player.facing = nextPlayerPosition.facing;
-    state.player.saturation = nextSaturation;
-    state.player.visualSaturation = approach(state.player.visualSaturation, nextSaturation, PLAYER_VISUAL_SATURATION_CHANGE_PER_SECOND * deltaSec);
-    state.player.biteAnimationMs = decayedBiteAnimationMs;
-    state.player.growthPulseMs = decayedGrowthPulseMs;
-    state.player.growthTargetSize = null;
-    return state;
+  state.thrownEggs = nextEggs;
+}
+
+function updateEggEffects(state: GameState, now: number) {
+  state.eggEffects = state.eggEffects.filter((effect) => now - effect.startedAt <= effect.durationMs);
+}
+
+function updateCollectorFeedback(state: GameState, now: number) {
+  if (state.collectorFeedback && now - state.collectorFeedback.startedAt > state.collectorFeedback.durationMs) {
+    state.collectorFeedback = null;
+  }
+}
+
+function updateFox(state: GameState, now: number) {
+  if (!state.fox) {
+    return;
   }
 
-  let predatorCollision = false;
+  const fox = state.fox;
+  const targetChicken = getChickenById(state, fox.targetChickenId);
+  if (!targetChicken) {
+    clearFoxThreat(targetChicken);
+    calmCoopAfterFox(state, now);
+    state.fox = null;
+    return;
+  }
 
-  for (const enemy of enemies) {
-    if (enemy.size > state.player.size && overlapsPlayer(nextPlayerPosition.x, nextPlayerPosition.y, state.player.size, enemy)) {
-      predatorCollision = true;
+  if (!targetChicken.alive && fox.animation.name !== "carryUp" && fox.animation.name !== "retreat") {
+    clearFoxThreat(targetChicken);
+    calmCoopAfterFox(state, now);
+    state.fox = null;
+    return;
+  }
+
+  if (targetChicken.alive) {
+    fox.x = targetChicken.x;
+    fox.y = targetChicken.y - FOX_OFFSET_Y;
+  }
+
+  const animationElapsed = now - fox.animation.startedAt;
+
+  if (fox.animation.name === "appear" && animationElapsed >= FOX_APPEAR_DURATION_MS) {
+    setFoxAnimation(fox, "lickLips", now);
+    return;
+  }
+
+  if (fox.animation.name === "lickLips" && animationElapsed >= FOX_LICK_DURATION_MS) {
+    setFoxAnimation(fox, "hover", now);
+    return;
+  }
+
+  if (fox.animation.name === "hit" && animationElapsed >= FOX_HIT_DURATION_MS) {
+    setFoxAnimation(fox, "retreat", now);
+    return;
+  }
+
+  if (fox.animation.name === "retreat" && animationElapsed >= FOX_RETREAT_DURATION_MS) {
+    calmCoopAfterFox(state, now);
+    state.fox = null;
+    return;
+  }
+
+  if (fox.animation.name === "steal" && animationElapsed >= FOX_STEAL_DURATION_MS) {
+    setFoxAnimation(fox, "carryUp", now);
+    return;
+  }
+
+  if (fox.animation.name === "carryUp" && animationElapsed >= FOX_CARRY_UP_DURATION_MS) {
+    calmCoopAfterFox(state, now);
+    state.fox = null;
+    return;
+  }
+
+  if (!fox.active || now < fox.attackAt) {
+    return;
+  }
+
+  targetChicken.threatenedByFox = false;
+  targetChicken.pendingRemoval = true;
+  setChickenAnimation(targetChicken, "stolen", now);
+  calmCoopAfterFox(state, now, targetChicken.id);
+  state.stats.chickensLost += 1;
+  state.score -= CHICKEN_LOST_PENALTY;
+  fox.active = false;
+  setFoxAnimation(fox, "steal", now);
+}
+
+function updatePuddles(state: GameState, now: number) {
+  state.puddles = state.puddles.filter((puddle) => puddle.expiresAt > now);
+
+  if (state.depositCombo.count > 0 && now > state.depositCombo.activeUntil) {
+    state.depositCombo.count = 0;
+  }
+}
+
+function checkPuddleCollision(state: GameState, now: number) {
+  const { farmer } = state;
+  if (farmer.isFallen || farmer.isJumping) {
+    return;
+  }
+
+  for (const puddle of state.puddles) {
+    if (puddle.slippedAt !== null) {
+      continue;
+    }
+
+    if (Math.abs(farmer.x - puddle.x) <= puddle.radius * 0.86 + FARMER_FEET_RADIUS) {
+      farmer.isFallen = true;
+      farmer.fallenUntil = now + FARMER_FALL_DURATION_MS;
+      setFarmerAnimation(state, "slipFall", now, FARMER_SLIP_DURATION_MS);
+      farmer.vx = 0;
+      farmer.vy = 0;
+      farmer.isJumping = false;
+      farmer.y = FARMER_GROUND_Y;
+
+      const lostEggs = Math.floor(farmer.basketEggs / 2);
+      farmer.basketEggs -= lostEggs;
+      state.depositCombo.count = 0;
+      puddle.slippedAt = now;
+      puddle.expiresAt = now + FARMER_SLIP_DURATION_MS;
       break;
     }
   }
+}
 
-  if (predatorCollision) {
-    state.status = "over";
-    state.reason = "predator";
-    state.timeMs = nextTimeMs;
-    state.spawnCooldownMs = spawnCooldownMs;
-    state.planktonSpawnCooldownMs = planktonSpawnCooldownMs;
-    state.hook = hook;
-    state.hookCooldownMs = hookCooldownMs;
-    state.nextEnemyId = nextEnemyId;
-    state.nextPlanktonId = nextPlanktonId;
-    state.gameOverOverlayDelayMs = GAME_OVER_OVERLAY_DELAY_MS;
-    state.player.x = nextPlayerPosition.x;
-    state.player.y = nextPlayerPosition.y;
-    state.player.facing = nextPlayerPosition.facing;
-    state.player.saturation = nextSaturation;
-    state.player.visualSaturation = approach(state.player.visualSaturation, nextSaturation, PLAYER_VISUAL_SATURATION_CHANGE_PER_SECOND * deltaSec);
-    state.player.biteAnimationMs = decayedBiteAnimationMs;
-    state.player.growthPulseMs = decayedGrowthPulseMs;
-    state.player.growthTargetSize = null;
-    return state;
+function updateDifficulty(state: GameState, now: number) {
+  while (now - state.lastDifficultyIncreaseTime >= DIFFICULTY_INCREASE_EVERY_MS) {
+    state.lastDifficultyIncreaseTime += DIFFICULTY_INCREASE_EVERY_MS;
+    state.eggSpawnIntervalMs = Math.max(MIN_EGG_SPAWN_INTERVAL_MS, state.eggSpawnIntervalMs * 0.9);
+    state.eggFallSpeed = Math.min(MAX_EGG_FALL_SPEED, state.eggFallSpeed * 1.08);
+  }
+}
+
+function handleActions(state: GameState, input: InputState, now: number) {
+  if (input.depositQueued) {
+    depositEgg(state, now);
   }
 
-  let fishScoreGain = 0;
-  let planktonScoreGain = 0;
-  let remainingEnemyWriteIndex = 0;
+  if (input.throwQueued) {
+    throwEgg(state);
+  }
+}
 
-  for (let index = 0; index < enemies.length; index += 1) {
-    const enemy = enemies[index];
-    const isPlayerCollision = overlapsPlayer(nextPlayerPosition.x, nextPlayerPosition.y, state.player.size, enemy);
-    const isMouthCollision = overlapsPlayerMouth(
-      nextPlayerPosition.x,
-      nextPlayerPosition.y,
-      state.player.size,
-      nextPlayerPosition.facing,
-      enemy.x,
-      enemy.y,
-      getFishRadius(enemy.size) * 0.55,
-    );
+function checkGameOver(state: GameState) {
+  removeBrokenThreats(state);
 
-    if (
-      enemy.size === MIN_FISH_SIZE
-      && enemy.size === state.player.size
-      && isPlayerCollision
-      && enemy.reactionAnimationMs <= 0
-    ) {
-      enemy.reactionAnimationMs = BABY_FISH_REACTION_ANIMATION_MS;
-    }
-
-    if (canEatEnemyFish(state.player.size, enemy.size) && isPlayerCollision && isMouthCollision) {
-      fishScoreGain += enemy.points;
-      continue;
-    }
-
-    enemies[remainingEnemyWriteIndex] = enemy;
-    remainingEnemyWriteIndex += 1;
+  if (state.brokenEggsCount >= MAX_BROKEN_EGGS) {
+    endGame(state, "brokenEggs");
+    return;
   }
 
-  enemies.length = remainingEnemyWriteIndex;
-  let remainingPlanktonWriteIndex = 0;
+  if (getAliveChickens(state).length === 0) {
+    endGame(state, "noChickens");
+  }
+}
 
-  for (let index = 0; index < plankton.length; index += 1) {
-    const food = plankton[index];
-    if (overlapsPlanktonMouth(nextPlayerPosition.x, nextPlayerPosition.y, state.player.size, nextPlayerPosition.facing, food)) {
-      planktonScoreGain += food.points;
-      continue;
-    }
+export function stepGame(state: GameState, input: InputState, deltaMs: number, now: number) {
+  state.nowMs = now;
 
-    plankton[remainingPlanktonWriteIndex] = food;
-    remainingPlanktonWriteIndex += 1;
+  if (state.status !== "playing") {
+    return;
   }
 
-  plankton.length = remainingPlanktonWriteIndex;
-
-  const scoreGain = fishScoreGain + planktonScoreGain;
-  const foodGainPercent = getFoodGainPercent(scoreGain, state.player.size);
-  const shouldPlayBite = scoreGain > 0;
-
-  let nextSize = state.player.size;
-  let nextScore = state.score + scoreGain;
-  let nextGrowthProgress = clamp(state.player.growthProgress + foodGainPercent, 0, PLAYER_GROWTH_THRESHOLD);
-  nextSaturation = clamp(nextSaturation + foodGainPercent, 0, PLAYER_GROWTH_THRESHOLD);
-  let nextGrowthTargetSize = state.player.growthTargetSize;
-  let startedGrowthTransform = false;
-
-  if (nextGrowthProgress >= PLAYER_GROWTH_THRESHOLD) {
-    if (nextSize < MAX_FISH_SIZE) {
-      nextGrowthTargetSize = Math.min(MAX_FISH_SIZE, nextSize + 1);
-      nextGrowthProgress = PLAYER_GROWTH_THRESHOLD;
-      startedGrowthTransform = true;
-    } else {
-      nextGrowthProgress = PLAYER_GROWTH_THRESHOLD;
-    }
-  }
-
-  const nextVisualSaturation = approach(
-    state.player.visualSaturation,
-    nextSaturation,
-    PLAYER_VISUAL_SATURATION_CHANGE_PER_SECOND * deltaSec,
-  );
-  const nextGrowthPulseMs = startedGrowthTransform ? PLAYER_GROWTH_PULSE_MS : decayedGrowthPulseMs;
-
-  state.timeMs = nextTimeMs;
-  state.spawnCooldownMs = spawnCooldownMs;
-  state.planktonSpawnCooldownMs = planktonSpawnCooldownMs;
-  state.hook = hook;
-  state.hookCooldownMs = hookCooldownMs;
-  state.nextEnemyId = nextEnemyId;
-  state.nextPlanktonId = nextPlanktonId;
-  state.score = nextScore;
-  state.player.x = nextPlayerPosition.x;
-  state.player.y = nextPlayerPosition.y;
-  state.player.size = nextSize;
-  state.player.saturation = nextSaturation;
-  state.player.visualSaturation = nextVisualSaturation;
-  state.player.growthProgress = nextGrowthProgress;
-  state.player.facing = nextPlayerPosition.facing;
-  state.player.biteAnimationMs = startedGrowthTransform ? 0 : (shouldPlayBite ? PLAYER_BITE_ANIMATION_MS : decayedBiteAnimationMs);
-  state.player.growthPulseMs = nextGrowthPulseMs;
-  state.player.growthTargetSize = nextGrowthTargetSize;
-
-  return state;
+  state.elapsedMs += deltaMs;
+  clearFinishedFarmerAnimation(state, now);
+  updateFarmerFall(state, now);
+  updateFarmerMovement(state, input, deltaMs / 1000);
+  handleActions(state, input, now);
+  updateChickenAnimations(state, now);
+  updateEggSpawning(state, now);
+  updateEggs(state, deltaMs / 1000, now);
+  updateThrownEggs(state, deltaMs / 1000);
+  updateEggEffects(state, now);
+  updateCollectorFeedback(state, now);
+  updateFox(state, now);
+  updatePuddles(state, now);
+  checkPuddleCollision(state, now);
+  updateDifficulty(state, now);
+  checkGameOver(state);
 }

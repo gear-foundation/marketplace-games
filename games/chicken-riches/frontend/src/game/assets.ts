@@ -1,199 +1,181 @@
-export const BABY_FISH_BITE_FRAME_SOURCES = [
-  "/fish/baby_fish_eat_01_deep_sharp.webp",
-  "/fish/baby_fish_eat_02_deep_sharp.webp",
-  "/fish/baby_fish_eat_03_deep_sharp.webp",
-  "/fish/baby_fish_eat_04_deep_sharp.webp",
-  "/fish/baby_fish_eat_05_deep_sharp.webp",
-];
+import chickenIdle from "./art/chicken/crops/chicken_idle.webp";
+import chickenLayingEgg from "./art/chicken/crops/chicken_laying_egg.webp";
+import chickenRelieved from "./art/chicken/crops/chicken_relieved.webp";
+import chickenScaredLoop from "./art/chicken/crops/chicken_scared_loop.webp";
+import chickenScaredStart from "./art/chicken/crops/chicken_scared_start.webp";
+import chickenStolen from "./art/chicken/crops/chicken_stolen.webp";
+import collectorBasket from "./art/collector/collector_basket.webp";
+import backgroundBack from "./art/environment/back.webp";
+import shelf from "./art/environment/shelf.webp";
+import brokenEgg from "./art/broken-egg/trimmed/broken_egg.webp";
+import eggFlyingLoop from "./art/egg/trimmed/egg_flying_loop.webp";
+import eggHit from "./art/egg/trimmed/egg_hit.webp";
+import eggMissExit from "./art/egg/trimmed/egg_miss_exit.webp";
+import eggThrowStart from "./art/egg/trimmed/egg_throw_start.webp";
+import fallingEggCenter from "./art/falling-egg/trimmed/egg_falling_center.webp";
+import fallingEggLeft from "./art/falling-egg/trimmed/egg_falling_left.webp";
+import fallingEggRight from "./art/falling-egg/trimmed/egg_falling_right.webp";
+import farmerBasketFull from "./art/farmer/basket-fill/farmer_basket_full.webp";
+import farmerBasketOne from "./art/farmer/basket-fill/farmer_basket_one.webp";
+import farmerBasketTwo from "./art/farmer/basket-fill/farmer_basket_two.webp";
+import farmerCatch from "./art/farmer/crops/farmer_catch.webp";
+import farmerDeposit from "./art/farmer/crops/farmer_deposit.webp";
+import farmerIdle from "./art/farmer/crops/farmer_idle.webp";
+import farmerJump from "./art/farmer/crops/farmer_jump.webp";
+import farmerLying from "./art/farmer/crops/farmer_lying.webp";
+import farmerRecover from "./art/farmer/crops/farmer_recover.webp";
+import farmerRun01 from "./art/farmer/crops/farmer_run_01_v1.webp";
+import farmerRun02 from "./art/farmer/crops/farmer_run_02_v1.webp";
+import farmerRun03 from "./art/farmer/crops/farmer_run_03_v1.webp";
+import farmerRun04 from "./art/farmer/crops/farmer_run_04_v1.webp";
+import farmerSlipFall from "./art/farmer/crops/farmer_slip_fall.webp";
+import farmerThrow from "./art/farmer/crops/farmer_throw.webp";
+import foxAppear from "./art/fox/crops/fox_appear.webp";
+import foxCarryUp from "./art/fox/crops/fox_carry_up.webp";
+import foxHit from "./art/fox/crops/fox_hit.webp";
+import foxHover from "./art/fox/crops/fox_hover.webp";
+import foxLickLips from "./art/fox/crops/fox_lick_lips.webp";
+import foxRetreat from "./art/fox/crops/fox_retreat.webp";
+import foxSteal from "./art/fox/crops/fox_steal.webp";
 
-export const LEVEL2_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level2_fish_eat_01.webp",
-  "/fish/level2_fish_eat_02.webp",
-  "/fish/level2_fish_eat_03.webp",
-  "/fish/level2_fish_eat_04.webp",
-  "/fish/level2_fish_eat_05.webp",
-];
+export const chickenAlignedAssets = {
+  idle: chickenIdle,
+  layingEgg: chickenLayingEgg,
+  scaredStart: chickenScaredStart,
+  scaredLoop: chickenScaredLoop,
+  relieved: chickenRelieved,
+  stolen: chickenStolen,
+} as const;
 
-export const LEVEL2_FISH_HURT_FRAME_SOURCES = [
-  "/fish/level2_fish_hurt_01.webp",
-  "/fish/level2_fish_hurt_02.webp",
-  "/fish/level2_fish_hurt_03.webp",
-  "/fish/level2_fish_hurt_04.webp",
-  "/fish/level2_fish_hurt_05.webp",
-];
+export const thrownEggTrimmedAssets = {
+  throwStart: eggThrowStart,
+  flyingLoop: eggFlyingLoop,
+  hit: eggHit,
+  missExit: eggMissExit,
+} as const;
 
-export const LEVEL3_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level3_fish_eat_01.webp",
-  "/fish/level3_fish_eat_02.webp",
-  "/fish/level3_fish_eat_03.webp",
-  "/fish/level3_fish_eat_04.webp",
-  "/fish/level3_fish_eat_05.webp",
-];
+export const fallingEggTrimmedAssets = {
+  center: fallingEggCenter,
+  left: fallingEggLeft,
+  right: fallingEggRight,
+} as const;
 
-export const LEVEL3_FISH_HURT_FRAME_SOURCES = [
-  "/fish/level3_fish_hurt_01.webp",
-  "/fish/level3_fish_hurt_02.webp",
-  "/fish/level3_fish_hurt_03.webp",
-  "/fish/level3_fish_hurt_04.webp",
-  "/fish/level3_fish_hurt_05.webp",
-];
+export const brokenEggTrimmedAssets = {
+  broken: brokenEgg,
+} as const;
 
-export const LEVEL4_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level4_fish_eat_01.webp",
-  "/fish/level4_fish_eat_02.webp",
-  "/fish/level4_fish_eat_03.webp",
-  "/fish/level4_fish_eat_04.webp",
-  "/fish/level4_fish_eat_05.webp",
-];
+export const environmentAssets = {
+  back: backgroundBack,
+  shelf,
+} as const;
 
-export const LEVEL4_FISH_HURT_FRAME_SOURCES = [
-  "/fish/level4_fish_hurt_01.webp",
-  "/fish/level4_fish_hurt_02.webp",
-  "/fish/level4_fish_hurt_03.webp",
-  "/fish/level4_fish_hurt_04.webp",
-  "/fish/level4_fish_hurt_05.webp",
-];
+export const collectorAssets = {
+  basket: collectorBasket,
+} as const;
 
-export const LEVEL5_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level5_fish_eat_01.webp",
-  "/fish/level5_fish_eat_02.webp",
-  "/fish/level5_fish_eat_03.webp",
-  "/fish/level5_fish_eat_04.webp",
-  "/fish/level5_fish_eat_05.webp",
-];
+export const farmerAlignedAssets = {
+  idle: farmerIdle,
+  run01: farmerRun01,
+  run02: farmerRun02,
+  run03: farmerRun03,
+  run04: farmerRun04,
+  jump: farmerJump,
+  catch: farmerCatch,
+  deposit: farmerDeposit,
+  throw: farmerThrow,
+  slipFall: farmerSlipFall,
+  lying: farmerLying,
+  recover: farmerRecover,
+} as const;
 
-export const LEVEL5_FISH_HURT_FRAME_SOURCES = [
-  "/fish/level5_fish_hurt_01.webp",
-  "/fish/level5_fish_hurt_02.webp",
-  "/fish/level5_fish_hurt_03.webp",
-  "/fish/level5_fish_hurt_04.webp",
-  "/fish/level5_fish_hurt_05.webp",
-];
+export const farmerBasketFillAssets = {
+  one: farmerBasketOne,
+  two: farmerBasketTwo,
+  full: farmerBasketFull,
+} as const;
 
-export const LEVEL6_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level6_fish_eat_01.webp",
-  "/fish/level6_fish_eat_02.webp",
-  "/fish/level6_fish_eat_03.webp",
-  "/fish/level6_fish_eat_04.webp",
-  "/fish/level6_fish_eat_05.webp",
-];
+export const foxAlignedAssets = {
+  appear: foxAppear,
+  lickLips: foxLickLips,
+  hover: foxHover,
+  steal: foxSteal,
+  carryUp: foxCarryUp,
+  hit: foxHit,
+  retreat: foxRetreat,
+} as const;
 
-export const LEVEL6_FISH_HURT_FRAME_SOURCES = [
-  "/fish/level6_fish_hurt_01.webp",
-  "/fish/level6_fish_hurt_02.webp",
-  "/fish/level6_fish_hurt_03.webp",
-  "/fish/level6_fish_hurt_04.webp",
-  "/fish/level6_fish_hurt_05.webp",
-];
+const gameAssetUrls = Array.from(
+  new Set([
+    ...Object.values(chickenAlignedAssets),
+    ...Object.values(thrownEggTrimmedAssets),
+    ...Object.values(fallingEggTrimmedAssets),
+    ...Object.values(brokenEggTrimmedAssets),
+    ...Object.values(environmentAssets),
+    ...Object.values(collectorAssets),
+    ...Object.values(farmerAlignedAssets),
+    ...Object.values(farmerBasketFillAssets),
+    ...Object.values(foxAlignedAssets),
+  ]),
+);
 
-export const LEVEL7_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level7_fish_eat_01.webp",
-  "/fish/level7_fish_eat_02.webp",
-  "/fish/level7_fish_eat_03.webp",
-  "/fish/level7_fish_eat_04.webp",
-  "/fish/level7_fish_eat_05.webp",
-];
+const preloadedAssetImages = new Map<string, HTMLImageElement>();
+let preloadGameAssetsPromise: Promise<void> | null = null;
 
-export const LEVEL7_FISH_HURT_FRAME_SOURCES = [
-  "/fish/level7_fish_hurt_01.webp",
-  "/fish/level7_fish_hurt_02.webp",
-  "/fish/level7_fish_hurt_03.webp",
-  "/fish/level7_fish_hurt_04.webp",
-  "/fish/level7_fish_hurt_05.webp",
-];
+export function getPreloadedAssetImage(src: string) {
+  return preloadedAssetImages.get(src) ?? null;
+}
 
-export const LEVEL8_FISH_BITE_FRAME_SOURCES = [
-  "/fish/level8_fish_eat_01.webp",
-  "/fish/level8_fish_eat_02.webp",
-  "/fish/level8_fish_eat_03.webp",
-  "/fish/level8_fish_eat_04.webp",
-  "/fish/level8_fish_eat_05.webp",
-];
+export function preloadGameAssets(onProgress?: (loaded: number, total: number) => void) {
+  const total = gameAssetUrls.length;
+  onProgress?.(preloadedAssetImages.size, total);
 
-export const BABY_FISH_REACTION_FRAME_SOURCES = [
-  "/fish/baby_fish_reaction_01.webp",
-  "/fish/baby_fish_reaction_02.webp",
-  "/fish/baby_fish_reaction_03.webp",
-];
+  if (typeof Image === "undefined" || total === 0) {
+    return Promise.resolve();
+  }
 
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Unable to load image: ${src}`));
-    image.src = src;
+  if (preloadedAssetImages.size === total) {
+    return Promise.resolve();
+  }
+
+  if (preloadGameAssetsPromise) {
+    return preloadGameAssetsPromise;
+  }
+
+  let loaded = preloadedAssetImages.size;
+  const pendingUrls = gameAssetUrls.filter((src) => !preloadedAssetImages.has(src));
+
+  preloadGameAssetsPromise = Promise.all(
+    pendingUrls.map(
+      (src) =>
+        new Promise<void>((resolve, reject) => {
+          const image = new Image();
+          image.decoding = "async";
+
+          const markLoaded = () => {
+            if (!preloadedAssetImages.has(src)) {
+              preloadedAssetImages.set(src, image);
+              loaded += 1;
+              onProgress?.(loaded, total);
+            }
+            resolve();
+          };
+
+          image.onload = markLoaded;
+          image.onerror = () => {
+            reject(new Error(`Failed to preload image asset: ${src}`));
+          };
+          image.src = src;
+
+          if (image.complete && image.naturalWidth > 0) {
+            markLoaded();
+          }
+        }),
+    ),
+  ).then(() => {
+    onProgress?.(total, total);
+  }).finally(() => {
+    preloadGameAssetsPromise = null;
   });
-}
 
-export function loadBabyFishBiteFrames() {
-  return Promise.all(BABY_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel2FishBiteFrames() {
-  return Promise.all(LEVEL2_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel2FishHurtFrames() {
-  return Promise.all(LEVEL2_FISH_HURT_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel3FishBiteFrames() {
-  return Promise.all(LEVEL3_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel3FishHurtFrames() {
-  return Promise.all(LEVEL3_FISH_HURT_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel4FishBiteFrames() {
-  return Promise.all(LEVEL4_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel4FishHurtFrames() {
-  return Promise.all(LEVEL4_FISH_HURT_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel5FishBiteFrames() {
-  return Promise.all(LEVEL5_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel5FishHurtFrames() {
-  return Promise.all(LEVEL5_FISH_HURT_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel6FishBiteFrames() {
-  return Promise.all(LEVEL6_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel6FishHurtFrames() {
-  return Promise.all(LEVEL6_FISH_HURT_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel7FishBiteFrames() {
-  return Promise.all(LEVEL7_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel7FishHurtFrames() {
-  return Promise.all(LEVEL7_FISH_HURT_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadLevel8FishBiteFrames() {
-  return Promise.all(LEVEL8_FISH_BITE_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadBabyFishReactionFrames() {
-  return Promise.all(BABY_FISH_REACTION_FRAME_SOURCES.map((src) => loadImage(src)));
-}
-
-export function loadBackgroundImage() {
-  return loadImage("/background.webp");
-}
-
-export function loadPlanktonImage() {
-  return loadImage("/plankton_cutout_sharp.webp");
-}
-
-export function loadBabyFishImage() {
-  return loadImage("/baby_fish_enemy_sharp.webp");
+  return preloadGameAssetsPromise;
 }

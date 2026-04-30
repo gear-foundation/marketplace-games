@@ -931,6 +931,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "chicken-riches-contract"
+version = "0.1.0"
+dependencies = [
+ "chicken-riches-contract-app",
+ "chicken-riches-contract-client",
+ "sails-rs",
+ "tokio",
+]
+
+[[package]]
+name = "chicken-riches-contract-app"
+version = "0.1.0"
+dependencies = [
+ "sails-rs",
+ "scale-info",
+]
+
+[[package]]
+name = "chicken-riches-contract-client"
+version = "0.1.0"
+dependencies = [
+ "chicken-riches-contract-app",
+ "sails-rs",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1358,32 +1384,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
-]
-
-[[package]]
-name = "deep-sea-feast-contract"
-version = "0.1.0"
-dependencies = [
- "deep-sea-feast-contract-app",
- "deep-sea-feast-contract-client",
- "sails-rs",
- "tokio",
-]
-
-[[package]]
-name = "deep-sea-feast-contract-app"
-version = "0.1.0"
-dependencies = [
- "sails-rs",
- "scale-info",
-]
-
-[[package]]
-name = "deep-sea-feast-contract-client"
-version = "0.1.0"
-dependencies = [
- "deep-sea-feast-contract-app",
- "sails-rs",
 ]
 
 [[package]]

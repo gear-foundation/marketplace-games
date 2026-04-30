@@ -1,10 +1,10 @@
 [package]
-name = "deep-sea-feast-contract-client"
+name = "chicken-riches-contract-client"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Package containing the client for the Deep Sea Feast contract"
+description = "Package containing the client for the Chicken Riches contract"
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
@@ -14,5 +14,5 @@ categories.workspace = true
 sails-rs.workspace = true
 
 [build-dependencies]
-deep-sea-feast-contract-app.workspace = true
+chicken-riches-contract-app.workspace = true
 sails-rs = { workspace = true, features = ["build"] }

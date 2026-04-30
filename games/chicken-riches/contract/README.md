@@ -1,11 +1,11 @@
-## The `deep-sea-feast-contract` program
+## The `chicken-riches-contract` program
 
-Program for the `Deep Sea Feast` game written with the Sails framework.
+Program for the `Chicken Riches` game written with the Sails framework.
 
 The workspace includes:
-- `deep-sea-feast-contract`: the package that builds the WASM binary and IDL
-- `deep-sea-feast-contract-app`: the contract logic
-- `deep-sea-feast-contract-client`: the generated client package for tests and integrations
+- `chicken-riches-contract`: the package that builds the WASM binary and IDL
+- `chicken-riches-contract-app`: the contract logic
+- `chicken-riches-contract-client`: the generated client package for tests and integrations
 
 ### Building
 

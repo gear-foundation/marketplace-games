@@ -9,7 +9,7 @@ import "@gear-js/wallet-connect/dist/style.css";
 import { App } from "./App";
 import "./styles.css";
 
-const APP_NAME = "Deep Sea Feast";
+const APP_NAME = "Chicken Riches";
 const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
 const queryClient = new QueryClient();
 
