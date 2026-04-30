@@ -55,7 +55,10 @@ const FILTER_TABS = [
 
 const APP_NAME = "Vara Arcade";
 const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
-const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
+const DEFAULT_BACKEND_URL = "https://arcade-vara-production.up.railway.app";
+const BACKEND_URL = (
+  import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? "/api" : DEFAULT_BACKEND_URL)
+).replace(/\/+$/, "");
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
@@ -307,8 +310,8 @@ function CategoryPill({ id, active, onClick }: { id: string; active: boolean; on
   );
 }
 
-function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
-  count: number; voted: boolean; disabled: boolean; walletConnected: boolean; onVote: (e: React.MouseEvent) => void;
+function VoteBtn({ count, voted, disabled, canVote, onVote }: {
+  count: number; voted: boolean; disabled: boolean; canVote: boolean; onVote: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
@@ -316,8 +319,8 @@ function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
       disabled={disabled}
       onClick={onVote}
       title={
-        !walletConnected
-          ? "Connect wallet to vote"
+        !canVote
+          ? "Voting is unavailable right now"
           : disabled
             ? "Vote request in progress"
             : voted
@@ -331,11 +334,11 @@ function VoteBtn({ count, voted, disabled, walletConnected, onVote }: {
   );
 }
 
-function GameCardEl({ game, voteCount, voted, walletConnected, votePending = false, onVote, featured }: {
+function GameCardEl({ game, voteCount, voted, canVote, votePending = false, onVote, featured }: {
   game: GameCard;
   voteCount: number;
   voted: boolean;
-  walletConnected: boolean;
+  canVote: boolean;
   votePending?: boolean;
   onVote: () => void;
   featured: boolean;
@@ -385,8 +388,8 @@ function GameCardEl({ game, voteCount, voted, walletConnected, votePending = fal
           <VoteBtn
             count={voteCount}
             voted={voted}
-            disabled={!walletConnected || votePending}
-            walletConnected={walletConnected}
+            disabled={!canVote || votePending}
+            canVote={canVote}
             onVote={(e) => { e.stopPropagation(); onVote(); }}
           />
           {isLive && game.url && (
@@ -416,6 +419,8 @@ function PlatformApp() {
   const [pendingVotes, setPendingVotes] = useState<Set<string>>(new Set());
   const accountIdentity = account?.decodedAddress || account?.address || "";
   const votesEnabled = Boolean(BACKEND_URL);
+  const walletConnected = Boolean(accountIdentity);
+  const canVote = votesEnabled && walletConnected;
 
   useEffect(() => {
     let cancelled = false;
@@ -427,13 +432,18 @@ function PlatformApp() {
 
   const allGames = useMemo(() => [...liveGames, ...SOON_GAMES], [liveGames]);
   const allGameIds = useMemo(() => allGames.map((game) => game.id), [allGames]);
+  const votableGameIds = useMemo(
+    () => allGames.filter((game) => game.status === "live").map((game) => game.id),
+    [allGames],
+  );
+  const votableGameIdSet = useMemo(() => new Set(votableGameIds), [votableGameIds]);
   const filteredGames = activeCategory === "all"
     ? allGames
     : allGames.filter(g => g.categories.includes(activeCategory as CategoryId));
 
   useEffect(() => {
     let cancelled = false;
-    fetchVotes(allGameIds, accountIdentity || undefined)
+    fetchVotes(votableGameIds, canVote ? accountIdentity : undefined)
       .then((snapshot) => {
         if (cancelled) return;
         setVotes(makeVoteCounts(allGameIds, snapshot.counts));
@@ -445,10 +455,10 @@ function PlatformApp() {
         setMyVotes(new Set());
       });
     return () => { cancelled = true; };
-  }, [accountIdentity, allGameIds]);
+  }, [accountIdentity, allGameIds, canVote, votableGameIds]);
 
   async function handleVote(gameId: string) {
-    if (!votesEnabled || !accountIdentity || pendingVotes.has(gameId)) return;
+    if (!canVote || !votableGameIdSet.has(gameId) || pendingVotes.has(gameId)) return;
     const wasVoted = myVotes.has(gameId);
     setPendingVotes((prev) => {
       const next = new Set(prev);
@@ -517,7 +527,9 @@ function PlatformApp() {
             Play.<span className="hero-accent"> Compete.</span> Win.
           </h1>
           <p className="hero-sub">
-            On-chain games on Vara Network. Free to play, daily gas vouchers.
+            <span className="hero-sub__highlight">Free to play, daily gas vouchers.</span>
+            <br />
+            <span className="hero-sub__secondary">On-chain games on Vara Network.</span>
           </p>
           <div className="hero-stats">
             <div className="stat">
@@ -558,7 +570,7 @@ function PlatformApp() {
             game={game}
             voteCount={votes[game.id] ?? 0}
             voted={myVotes.has(game.id)}
-            walletConnected={!!accountIdentity && votesEnabled}
+            canVote={canVote && game.status === "live"}
             votePending={pendingVotes.has(game.id)}
             onVote={() => handleVote(game.id)}
             featured={i === 0 && activeCategory === "all"}
@@ -576,9 +588,15 @@ function PlatformApp() {
         </div>
       </main>
 
-      {!accountIdentity && votesEnabled && (
+      {!votesEnabled && (
         <div className="vote-nudge">
-          <span>Connect your Vara wallet in the header to vote for upcoming games.</span>
+          <span>Voting is temporarily unavailable in this frontend environment.</span>
+        </div>
+      )}
+
+      {votesEnabled && !walletConnected && (
+        <div className="vote-nudge">
+          <span>Connect your wallet to vote. Your vote will be linked to that wallet address.</span>
         </div>
       )}
     </div>

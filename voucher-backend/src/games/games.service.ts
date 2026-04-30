@@ -48,12 +48,21 @@ export class GamesService {
     const counts = Object.fromEntries(
       normalizedSlugs.map((slug) => [slug, 0]),
     ) as Record<string, number>;
+    const votableGames = await this.gamesRepo.find({
+      select: { slug: true },
+      where: { slug: In(normalizedSlugs), status: ArcadeGameStatus.Live },
+    });
+    const votableSlugs = votableGames.map((game) => game.slug);
+
+    if (votableSlugs.length === 0) {
+      return { counts, liked: [] };
+    }
 
     const countRows = await this.votesRepo
       .createQueryBuilder('vote')
       .select('vote.gameSlug', 'gameSlug')
       .addSelect('COUNT(*)::int', 'count')
-      .where('vote.gameSlug IN (:...slugs)', { slugs: normalizedSlugs })
+      .where('vote.gameSlug IN (:...slugs)', { slugs: votableSlugs })
       .groupBy('vote.gameSlug')
       .getRawMany<{ gameSlug: string; count: string }>();
 
@@ -67,7 +76,7 @@ export class GamesService {
 
     const likedRows = await this.votesRepo.find({
       select: { gameSlug: true },
-      where: { gameSlug: In(normalizedSlugs), voterAddress: account },
+      where: { gameSlug: In(votableSlugs), voterAddress: account },
     });
 
     return {
@@ -86,6 +95,15 @@ export class GamesService {
 
     if (normalizedAccount.length < 3 || normalizedAccount.length > 128) {
       throw new BadRequestException('invalid_account');
+    }
+
+    const game = await this.gamesRepo.findOne({
+      select: { slug: true },
+      where: { slug: normalizedSlug, status: ArcadeGameStatus.Live },
+    });
+
+    if (!game) {
+      throw new BadRequestException('game_not_votable');
     }
 
     const existing = await this.votesRepo.findOne({
