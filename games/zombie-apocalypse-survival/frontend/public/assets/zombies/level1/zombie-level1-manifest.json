@@ -1,0 +1,41 @@
+{
+  "name": "zombie-level1",
+  "description": "Base melee zombie, top-down GTA2-like camera, cartoon 2D sprite sheet.",
+  "sheet": "zombie-level1-spritesheet.png",
+  "sourceSheet": "zombie-level1-spritesheet-chroma.png",
+  "frameWidth": 320,
+  "frameHeight": 320,
+  "animations": [
+    {
+      "name": "idle",
+      "file": "zombie-level1-idle.png",
+      "frames": 5,
+      "fps": 5
+    },
+    {
+      "name": "walk",
+      "file": "zombie-level1-walk.png",
+      "frames": 8,
+      "fps": 10
+    },
+    {
+      "name": "attack",
+      "file": "zombie-level1-attack.png",
+      "frames": 5,
+      "fps": 14,
+      "hitFrame": 2
+    },
+    {
+      "name": "hit",
+      "file": "zombie-level1-hit.png",
+      "frames": 3,
+      "fps": 14
+    },
+    {
+      "name": "death",
+      "file": "zombie-level1-death.png",
+      "frames": 7,
+      "fps": 10
+    }
+  ]
+}

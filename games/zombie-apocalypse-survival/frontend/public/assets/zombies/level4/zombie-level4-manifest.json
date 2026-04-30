@@ -1,0 +1,65 @@
+{
+  "name": "zombie-level4",
+  "description": "Zombie tank, top-down GTA2-like camera, cartoon 2D sprite sheet.",
+  "sheet": "zombie-level4-spritesheet.png",
+  "sourceSheet": "zombie-level4-spritesheet-chroma.png",
+  "frameWidth": 768,
+  "frameHeight": 768,
+  "animations": [
+    {
+      "name": "idle",
+      "file": "zombie-level4-idle.png",
+      "frames": 5,
+      "fps": 4
+    },
+    {
+      "name": "walk",
+      "file": "zombie-level4-walk.png",
+      "frames": 8,
+      "fps": 7
+    },
+    {
+      "name": "attack_windup",
+      "file": "zombie-level4-attack-windup.png",
+      "frames": 6,
+      "fps": 10
+    },
+    {
+      "name": "smash",
+      "file": "zombie-level4-smash.png",
+      "frames": 7,
+      "fps": 14,
+      "hitFrame": 3
+    },
+    {
+      "name": "recovery",
+      "file": "zombie-level4-recovery.png",
+      "frames": 6,
+      "fps": 8
+    },
+    {
+      "name": "hit",
+      "file": "zombie-level4-hit.png",
+      "frames": 3,
+      "fps": 12
+    },
+    {
+      "name": "death",
+      "file": "zombie-level4-death.png",
+      "frames": 10,
+      "fps": 8
+    },
+    {
+      "name": "roar",
+      "file": "zombie-level4-roar.png",
+      "frames": 6,
+      "fps": 7
+    },
+    {
+      "name": "hammer_impact_fx",
+      "file": "fx-hammer-impact.png",
+      "frames": 5,
+      "fps": 18
+    }
+  ]
+}
