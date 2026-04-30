@@ -62,6 +62,7 @@ const BACKEND_URL = (
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
+    case "chicken-riches": return "/chicken_riches.webp";
     case "skybound-jump":   return "/monkey_run_16x9.webp";
     case "lumberjack":      return "/lumberjack_16x9.webp";
     case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
@@ -74,6 +75,7 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
 
 function getGameCategories(slug: string, tags: string[]): CategoryId[] {
   switch (slug) {
+    case "chicken-riches": return ["arcade"];
     case "skybound-jump":  return ["platformer", "arcade"];
     case "lumberjack":     return ["arcade"];
     case "robo-miner":     return ["arcade"];
@@ -151,6 +153,12 @@ const FALLBACK_GAMES: GameCard[] = [
 ];
 
 const SOON_GAMES: GameCard[] = [
+  {
+    id: "chicken-riches",
+    title: "Chicken Riches",
+    description: "A fast-paced arcade adventure where every run chases bigger rewards and future on-chain bragging rights.",
+    status: "soon", image: "/chicken_riches.webp", categories: ["arcade"],
+  },
   {
     id: "chain-battles",
     title: "Chain Battles",
