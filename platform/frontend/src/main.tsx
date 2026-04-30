@@ -218,6 +218,19 @@ function normalizeGame(game: ApiGame): GameCard {
   };
 }
 
+function mergeGamesWithFallback(games: GameCard[]): GameCard[] {
+  const merged = [...games];
+  const knownIds = new Set(games.map((game) => game.id));
+
+  for (const fallbackGame of FALLBACK_GAMES) {
+    if (!knownIds.has(fallbackGame.id)) {
+      merged.push(fallbackGame);
+    }
+  }
+
+  return merged;
+}
+
 async function fetchGames(): Promise<GameCard[]> {
   if (!BACKEND_URL) return FALLBACK_GAMES;
   const res = await fetch(`${BACKEND_URL}/games`);
@@ -225,7 +238,7 @@ async function fetchGames(): Promise<GameCard[]> {
   const data = (await res.json()) as unknown;
   if (!Array.isArray(data)) return FALLBACK_GAMES;
   const games = data.map(g => normalizeGame(g as ApiGame));
-  return games.length > 0 ? games : FALLBACK_GAMES;
+  return games.length > 0 ? mergeGamesWithFallback(games) : FALLBACK_GAMES;
 }
 
 function makeVoteCounts(slugs: string[], source?: Record<string, number>): Record<string, number> {

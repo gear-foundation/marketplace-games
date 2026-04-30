@@ -5,7 +5,7 @@ WORKDIR /app
 ARG VITE_NODE_ADDRESS=wss://rpc.vara.network
 ARG VITE_PROGRAM_ID=0xf97028c91e25e8725af8373fad4f01c882bf187146e8ee5373f76e1d0bb43ac4
 ARG VITE_VOUCHER_BACKEND_URL=https://arcade-vara-production.up.railway.app
-ARG VITE_ALLOWED_HOSTS=chicken-riches-vara.up.railway.app,arcade-vara.up.railway.app
+ARG VITE_ALLOWED_HOSTS=chicken-riches-production.up.railway.app,arcade-vara.up.railway.app
 
 ENV VITE_NODE_ADDRESS=$VITE_NODE_ADDRESS
 ENV VITE_PROGRAM_ID=$VITE_PROGRAM_ID
