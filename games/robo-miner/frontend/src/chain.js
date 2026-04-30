@@ -18,7 +18,8 @@ import { SailsProgram } from './contracts/lib.ts';
 const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
 const RPC = env.VITE_NODE_ADDRESS || 'wss://rpc.vara.network';
 const PROGRAM_ID = (env.VITE_PROGRAM_ID
-  || '0x59b572ac6135fef6fa5d1bdb2b365f1ad7b721bc7a620122065968a78c4fa1f1');
+  || '0xacc90a11efbb848c75cfd166b00c4bf3d702fd767f0930e9d2840bf091614f1b');
+const NETWORK = env.VITE_NETWORK || 'vara-mainnet';
 
 let _apiPromise = null;
 let _program = null;
@@ -42,21 +43,25 @@ async function getProgram() {
 }
 
 // ---- Queries (free, no signing) --------------------------------------------
+//
+// sails-js builders need `.call()` to actually fire the query — without
+// it you just get the builder object back. We do that here so callers
+// can `await queryX()` and get the decoded value directly.
 
 export async function queryProfile(playerSs58) {
   const program = await getProgram();
-  return program.roboMinerProfile.profile(playerSs58);
+  return program.roboMinerProfile.profile(playerSs58).call();
 }
 
 export async function queryTotalPlayers() {
   const program = await getProgram();
-  const n = await program.roboMinerProfile.totalPlayers();
+  const n = await program.roboMinerProfile.totalPlayers().call();
   return Number(n);
 }
 
 export async function queryTopPlayers(limit = 10) {
   const program = await getProgram();
-  return program.roboMinerProfile.topPlayers(limit);
+  return program.roboMinerProfile.topPlayers(limit).call();
 }
 
 // ---- Voucher backend (Vara Arcade) -----------------------------------------
@@ -164,11 +169,20 @@ async function signAndSend(tx, ss58) {
   return { msgId, blockHash, voucherId };
 }
 
-/// Submit a finished run. Score = money + (50_000 if diamond).
+/// Submit a FINAL run. Score = money + (50_000 if diamond). Use this on
+/// "End Run" or on diamond win — these increment runs_completed on chain.
 /// Player pays no value; gas comes from the voucher.
 export async function submitRun(score, ss58) {
   const program = await getProgram();
   const tx = program.roboMinerProfile.submitRun(BigInt(score));
+  return signAndSend(tx, ss58);
+}
+
+/// Submit a mid-run CHECKPOINT (Continue after death). Bumps `checkpoints`
+/// only, never `runs_completed`. Same voucher path as submitRun.
+export async function submitCheckpoint(score, ss58) {
+  const program = await getProgram();
+  const tx = program.roboMinerProfile.submitCheckpoint(BigInt(score));
   return signAndSend(tx, ss58);
 }
 
@@ -211,7 +225,6 @@ export function formatVara(raw, digits = 3) {
 
 export const PROGRAM_INFO = {
   programId: PROGRAM_ID,
-  network: deployment.network,
-  rpc: RPC,
+  network: NETWORK,
   voucherBackend: VOUCHER_BACKEND_URL,
 };

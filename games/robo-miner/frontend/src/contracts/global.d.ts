@@ -10,9 +10,15 @@ declare global {
     */
     high_score: number | string | bigint;
     /**
-     * Total runs ended (death or win → submit_run was called).
+     * Total runs FINALIZED (death-end OR diamond win).
+     * Increments only on `submit_run`, NOT on `submit_checkpoint`.
     */
     runs_completed: number | string | bigint;
+    /**
+     * Total mid-run checkpoints (each "Continue" after death).
+     * Increments only on `submit_checkpoint`.
+    */
+    checkpoints: number | string | bigint;
   }
 
   /**
@@ -22,5 +28,6 @@ declare global {
     player: ActorId;
     high_score: number | string | bigint;
     runs_completed: number | string | bigint;
+    checkpoints: number | string | bigint;
   }
 };

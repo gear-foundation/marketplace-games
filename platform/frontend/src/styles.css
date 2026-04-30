@@ -112,6 +112,13 @@ img { display: block; }
 
 /* ─── Wallet Button ─────────────────────────────────────────────────────────── */
 
+.wallet-slot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .wallet-btn {
   flex: 0 0 auto;
   padding: 9px 18px;
@@ -189,6 +196,18 @@ img { display: block; }
   font-size: clamp(15px, 2vw, 18px);
   font-weight: 400;
   line-height: 1.6;
+}
+
+.hero-sub__highlight {
+  color: var(--text);
+  font-size: clamp(17px, 2.2vw, 21px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hero-sub__secondary {
+  display: inline-block;
+  margin-top: 6px;
 }
 
 .hero-stats {

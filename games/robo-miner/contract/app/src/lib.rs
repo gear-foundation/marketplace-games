@@ -13,8 +13,12 @@ use sails_rs::prelude::*;
 pub struct Profile {
     /// Best single-run score the player has ever submitted.
     pub high_score: u128,
-    /// Total runs ended (death or win → submit_run was called).
+    /// Total runs FINALIZED (death-end OR diamond win).
+    /// Increments only on `submit_run`, NOT on `submit_checkpoint`.
     pub runs_completed: u64,
+    /// Total mid-run checkpoints (each "Continue" after death).
+    /// Increments only on `submit_checkpoint`.
+    pub checkpoints: u64,
 }
 
 /// One row of the leaderboard, returned by `top_players`.
@@ -23,6 +27,7 @@ pub struct LeaderboardEntry {
     pub player: ActorId,
     pub high_score: u128,
     pub runs_completed: u64,
+    pub checkpoints: u64,
 }
 
 /// Service events. The contract is voucher-only — no value transfers
@@ -32,10 +37,13 @@ pub struct LeaderboardEntry {
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
 pub enum ProfileEvent {
-    /// `submit_run` improved the caller's high score.
+    /// `submit_run` or `submit_checkpoint` improved the caller's high score.
     NewHighScore { player: ActorId, score: u128 },
-    /// `submit_run` was called — emitted on every run end (win or death).
+    /// `submit_run` was called — emitted only on FINAL submissions
+    /// (death-end OR diamond win). Not emitted for checkpoints.
     RunSubmitted { player: ActorId, score: u128 },
+    /// `submit_checkpoint` was called — emitted on each mid-run "Continue".
+    CheckpointSubmitted { player: ActorId, score: u128 },
 }
 
 // ---- Service state ---------------------------------------------------------
@@ -91,6 +99,24 @@ impl RoboMinerProfile {
             .expect("event emit failed");
     }
 
+    /// Records a mid-run checkpoint (player chose "Continue" after death).
+    /// Bumps `checkpoints` and may improve `high_score`, but does NOT
+    /// touch `runs_completed` — that counter only moves on `submit_run`.
+    /// Same voucher-friendly contract as `submit_run`.
+    #[export]
+    pub fn submit_checkpoint(&mut self, score: u128) {
+        let player = sails_rs::gstd::msg::source();
+        let entry = store().profiles.entry(player).or_default();
+        entry.checkpoints = entry.checkpoints.saturating_add(1);
+        if score > entry.high_score {
+            entry.high_score = score;
+            self.emit_event(ProfileEvent::NewHighScore { player, score })
+                .expect("event emit failed");
+        }
+        self.emit_event(ProfileEvent::CheckpointSubmitted { player, score })
+            .expect("event emit failed");
+    }
+
     /// Wipe the caller's profile. Useful for tests / fresh restart.
     #[export]
     pub fn reset_self(&mut self) {
@@ -128,6 +154,7 @@ impl RoboMinerProfile {
                 player: *player,
                 high_score: p.high_score,
                 runs_completed: p.runs_completed,
+                checkpoints: p.checkpoints,
             })
             .collect();
         all.sort_by(|a, b| {

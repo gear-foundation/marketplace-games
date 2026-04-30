@@ -11,8 +11,8 @@ export class SailsProgram {
 
   constructor(public api: GearApi, programId?: `0x${string}`) {
     const types: Record<string, any> = {
-      Profile: {"high_score":"u128","runs_completed":"u64"},
-      LeaderboardEntry: {"player":"[u8;32]","high_score":"u128","runs_completed":"u64"},
+      Profile: {"high_score":"u128","runs_completed":"u64","checkpoints":"u64"},
+      LeaderboardEntry: {"player":"[u8;32]","high_score":"u128","runs_completed":"u64","checkpoints":"u64"},
     }
 
     this.registry = new TypeRegistry();
@@ -83,6 +83,27 @@ export class RoboMinerProfile {
       'ResetSelf',
       null,
       null,
+      'Null',
+      this._program.programId,
+    );
+  }
+
+  /**
+   * Records a mid-run checkpoint (player chose "Continue" after death).
+   * Bumps `checkpoints` and may improve `high_score`, but does NOT
+   * touch `runs_completed` — that counter only moves on `submit_run`.
+   * Same voucher-friendly contract as `submit_run`.
+  */
+  public submitCheckpoint(score: number | string | bigint): TransactionBuilder<null> {
+    if (!this._program.programId) throw new Error('Program ID is not set');
+    return new TransactionBuilder<null>(
+      this._program.api,
+      this._program.registry,
+      'send_message',
+      'RoboMinerProfile',
+      'SubmitCheckpoint',
+      score,
+      'u128',
       'Null',
       this._program.programId,
     );
@@ -162,7 +183,7 @@ export class RoboMinerProfile {
   }
 
   /**
-   * `submit_run` improved the caller's high score.
+   * `submit_run` or `submit_checkpoint` improved the caller's high score.
   */
   public subscribeToNewHighScoreEvent(callback: (data: { player: ActorId; score: number | string | bigint }) => void | Promise<void>): Promise<() => void> {
     return this._program.api.gearEvents.subscribeToGearEvent('UserMessageSent', ({ data: { message } }) => {;
@@ -178,7 +199,8 @@ export class RoboMinerProfile {
   }
 
   /**
-   * `submit_run` was called — emitted on every run end (win or death).
+   * `submit_run` was called — emitted only on FINAL submissions
+   * (death-end OR diamond win). Not emitted for checkpoints.
   */
   public subscribeToRunSubmittedEvent(callback: (data: { player: ActorId; score: number | string | bigint }) => void | Promise<void>): Promise<() => void> {
     return this._program.api.gearEvents.subscribeToGearEvent('UserMessageSent', ({ data: { message } }) => {;
@@ -188,6 +210,22 @@ export class RoboMinerProfile {
 
       const payload = message.payload.toHex();
       if (getServiceNamePrefix(payload) === 'RoboMinerProfile' && getFnNamePrefix(payload) === 'RunSubmitted') {
+        callback(this._program.registry.createType('(String, String, {"player":"[u8;32]","score":"u128"})', message.payload)[2].toJSON() as unknown as { player: ActorId; score: number | string | bigint });
+      }
+    });
+  }
+
+  /**
+   * `submit_checkpoint` was called — emitted on each mid-run "Continue".
+  */
+  public subscribeToCheckpointSubmittedEvent(callback: (data: { player: ActorId; score: number | string | bigint }) => void | Promise<void>): Promise<() => void> {
+    return this._program.api.gearEvents.subscribeToGearEvent('UserMessageSent', ({ data: { message } }) => {;
+      if (!message.source.eq(this._program.programId) || !message.destination.eq(ZERO_ADDRESS)) {
+        return;
+      }
+
+      const payload = message.payload.toHex();
+      if (getServiceNamePrefix(payload) === 'RoboMinerProfile' && getFnNamePrefix(payload) === 'CheckpointSubmitted') {
         callback(this._program.registry.createType('(String, String, {"player":"[u8;32]","score":"u128"})', message.payload)[2].toJSON() as unknown as { player: ActorId; score: number | string | bigint });
       }
     });
