@@ -3,9 +3,9 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 ARG VITE_NODE_ADDRESS=wss://rpc.vara.network
-ARG VITE_PROGRAM_ID=0xbf54fe438121510a6e435686eb255af9106d5e74e5c0593142a7a9de29dad78f
+ARG VITE_PROGRAM_ID=0xf97028c91e25e8725af8373fad4f01c882bf187146e8ee5373f76e1d0bb43ac4
 ARG VITE_VOUCHER_BACKEND_URL=https://arcade-vara-production.up.railway.app
-ARG VITE_ALLOWED_HOSTS=deep-sea-feast-vara.up.railway.app,arcade-vara.up.railway.app
+ARG VITE_ALLOWED_HOSTS=chicken-riches-production.up.railway.app,arcade-vara.up.railway.app
 
 ENV VITE_NODE_ADDRESS=$VITE_NODE_ADDRESS
 ENV VITE_PROGRAM_ID=$VITE_PROGRAM_ID

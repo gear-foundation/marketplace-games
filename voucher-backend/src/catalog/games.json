@@ -124,5 +124,23 @@
       "duration": 86400,
       "oneTime": false
     }
+  },
+  {
+    "slug": "chicken-riches",
+    "title": "Chicken Riches",
+    "description": "Catch eggs, bank them, jump over puddles, and keep the hens safe while chasing the best run on-chain.",
+    "frontendUrl": "${CHICKEN_RICHES_URL:https://chicken-riches-production.up.railway.app/}",
+    "contractAddress": "0xf97028c91e25e8725af8373fad4f01c882bf187146e8ee5373f76e1d0bb43ac4",
+    "imageUrl": "${CHICKEN_RICHES_IMAGE_URL:/chicken_riches.webp}",
+    "tags": ["Arcade", "Leaderboard", "Gas voucher"],
+    "status": "live",
+    "sortOrder": 55,
+    "gasless": {
+      "enabled": true,
+      "name": "ChickenRiches",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
   }
 ]

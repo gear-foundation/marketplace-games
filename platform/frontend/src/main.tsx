@@ -142,6 +142,15 @@ const FALLBACK_GAMES: GameCard[] = [
     categories: ["arcade"],
   },
   {
+    id: "chicken-riches",
+    title: "Chicken Riches",
+    description: "Catch eggs, bank them, jump over puddles, and keep the hens safe while chasing the best run on-chain.",
+    url: "https://chicken-riches-production.up.railway.app/",
+    status: "live",
+    image: "/chicken_riches.webp",
+    categories: ["arcade"],
+  },
+  {
     id: "robo-miner",
     title: "Robo Miner",
     description: "Mine resources, build your robot, and compete for the highest score on-chain.",
@@ -153,12 +162,6 @@ const FALLBACK_GAMES: GameCard[] = [
 ];
 
 const SOON_GAMES: GameCard[] = [
-  {
-    id: "chicken-riches",
-    title: "Chicken Riches",
-    description: "A fast-paced arcade adventure where every run chases bigger rewards and future on-chain bragging rights.",
-    status: "soon", image: "/chicken_riches.webp", categories: ["arcade"],
-  },
   {
     id: "chain-battles",
     title: "Chain Battles",

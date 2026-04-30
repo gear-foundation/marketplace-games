@@ -33,7 +33,7 @@ import {
   type VoucherState,
 } from "../shared/voucher";
 
-const DEFAULT_PROGRAM_ID = "0xbf54fe438121510a6e435686eb255af9106d5e74e5c0593142a7a9de29dad78f";
+const DEFAULT_PROGRAM_ID = "0xf97028c91e25e8725af8373fad4f01c882bf187146e8ee5373f76e1d0bb43ac4";
 const VARA_PROGRAM_ID = import.meta.env.VITE_PROGRAM_ID || DEFAULT_PROGRAM_ID;
 const VOUCHER_BACKEND_URL = (import.meta.env.VITE_VOUCHER_BACKEND_URL || "").replace(/\/+$/, "");
 const VISIBLE_LEADERBOARD_LIMIT = 5;
