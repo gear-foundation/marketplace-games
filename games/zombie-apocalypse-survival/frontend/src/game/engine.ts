@@ -1,9 +1,5 @@
 import { CANVAS_H, CANVAS_W } from "./constants";
 import { attachInput, clearInputFrame, detachInput, getInput, resetInput } from "./input";
-import smallMedkitUrl from "../assets/runtime/bonuses/small-medkit.webp";
-import bigMedkitUrl from "../assets/runtime/bonuses/big-medkit.webp";
-import acidPoolUrl from "../assets/runtime/effects/acid-pool.webp";
-import acidSpitUrl from "../assets/runtime/effects/acid-spit.webp";
 import {
   sfxAcid,
   sfxExplosion,
@@ -273,6 +269,7 @@ const ACID_SPIT_DRAW_SIZE = 52;
 const FLAMETHROWER_STREAM_DRAW_SIZE = 92;
 const FLAMETHROWER_STREAM_FRAME_W = 320;
 const FLAMETHROWER_STREAM_FRAME_H = 320;
+const IMAGE_LOAD_RETRY_DELAYS_MS = [350, 1_200, 3_000] as const;
 
 type ZombieStripName = "idle" | "walk" | "attack" | "hit" | "death";
 type ZombieStrip = {
@@ -291,6 +288,8 @@ type ImageAsset = {
   image: HTMLImageElement | null;
   loaded: boolean;
 };
+
+type LoadableImageAsset = ZombieStrip | ImageAsset;
 
 type NinjaStripName = "idle" | "run" | "dash" | "attack" | "jump_back" | "hit" | "death" | "warning";
 type TankStripName = "idle" | "walk" | "attack_windup" | "smash" | "recovery" | "hit" | "death" | "roar" | "hammer_impact_fx";
@@ -707,12 +706,12 @@ const bonusImageAssets: {
   speed: ImageAsset;
 } = {
   small_medkit: {
-    path: smallMedkitUrl,
+    path: "/assets/bonuses/small-medkit.webp",
     image: null,
     loaded: false,
   },
   big_medkit: {
-    path: bigMedkitUrl,
+    path: "/assets/bonuses/big-medkit.webp",
     image: null,
     loaded: false,
   },
@@ -735,12 +734,12 @@ const bonusImageAssets: {
 
 const effectImageAssets: { acid_pool: ImageAsset; acid_spit: ImageAsset } = {
   acid_pool: {
-    path: acidPoolUrl,
+    path: "/assets/effects/acid-pool.webp",
     image: null,
     loaded: false,
   },
   acid_spit: {
-    path: acidSpitUrl,
+    path: "/assets/effects/acid-spit.webp",
     image: null,
     loaded: false,
   },
@@ -3121,39 +3120,59 @@ function roundedRectPath(
   renderingContext.closePath();
 }
 
-function loadZombieStripSet(strips: Record<string, ZombieStrip>) {
-  for (const strip of Object.values(strips)) {
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () => {
-      strip.loaded = true;
-      emitUi();
-    };
-    image.onerror = () => {
-      strip.loaded = true;
-      strip.image = null;
-      emitUi();
-    };
-    image.src = strip.path;
-    strip.image = image;
+function resolveAssetUrl(path: string) {
+  if (/^(?:https?:|data:|blob:)/.test(path)) {
+    return path;
   }
+
+  const baseUrl = import.meta.env.BASE_URL || "/";
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+
+  if (normalizedBase && normalizedBase !== "/" && path.startsWith("/assets/")) {
+    return `${normalizedBase}${path}`;
+  }
+
+  return path;
 }
 
-function loadImageAsset(asset: ImageAsset) {
+function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 0) {
   const image = new Image();
+  const resolvedUrl = resolveAssetUrl(asset.path);
+
+  asset.loaded = false;
+  asset.image = image;
   image.decoding = "async";
   image.onload = () => {
     asset.loaded = true;
     emitUi();
   };
   image.onerror = () => {
+    const nextDelay = IMAGE_LOAD_RETRY_DELAYS_MS[attempt];
+
+    if (nextDelay !== undefined) {
+      window.setTimeout(() => loadImageWithRetry(asset, label, attempt + 1), nextDelay);
+      return;
+    }
+
     asset.loaded = true;
     asset.image = null;
-    console.warn(`[Zombie Apocalypse Survival] Failed to load asset: ${asset.path}`);
+    console.warn(
+      `[Zombie Apocalypse Survival] Failed to load ${label} after ${attempt + 1} attempts: ${asset.path}`,
+      { resolvedUrl },
+    );
     emitUi();
   };
-  image.src = asset.path;
-  asset.image = image;
+  image.src = resolvedUrl;
+}
+
+function loadZombieStripSet(strips: Record<string, ZombieStrip>) {
+  for (const [name, strip] of Object.entries(strips)) {
+    loadImageWithRetry(strip, `sprite "${name}"`);
+  }
+}
+
+function loadImageAsset(asset: ImageAsset) {
+  loadImageWithRetry(asset, "asset");
 }
 
 function ensureArenaBackgroundAsset() {
