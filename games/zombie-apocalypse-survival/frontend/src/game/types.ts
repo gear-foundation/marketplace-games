@@ -31,6 +31,7 @@ export type HudData = {
 export type LoadingData = {
   active: boolean;
   loaded: number;
+  failed: number;
   total: number;
   progress: number;
   label: string;

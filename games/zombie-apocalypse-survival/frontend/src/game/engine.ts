@@ -281,6 +281,7 @@ type ZombieStrip = {
   height: number;
   image: HTMLImageElement | null;
   loaded: boolean;
+  failed?: boolean;
 };
 
 type PlayerStrip = ZombieStrip;
@@ -294,6 +295,7 @@ type ImageAsset = {
   path: string;
   image: HTMLImageElement | null;
   loaded: boolean;
+  failed?: boolean;
   source?: ImageSourceRect;
 };
 
@@ -884,7 +886,7 @@ function snapshotHud(current: GameState): HudData {
 }
 
 function collectRequiredLoadables(current: GameState) {
-  const loadables: Array<{ loaded: boolean }> = [
+  const loadables: Array<{ loaded: boolean; failed?: boolean }> = [
     arenaImageAsset,
     ...Object.values(effectImageAssets),
     ...Object.values(bonusImageAssets),
@@ -906,16 +908,19 @@ function collectRequiredLoadables(current: GameState) {
 function snapshotLoading(current: GameState): LoadingData {
   const required = collectRequiredLoadables(current);
   const total = required.length;
-  const loaded = required.filter((asset) => asset.loaded).length;
-  const progress = total > 0 ? loaded / total : 1;
-  const active = loaded < total;
+  const failed = required.filter((asset) => asset.failed).length;
+  const loaded = required.filter((asset) => asset.loaded && !asset.failed).length;
+  const completed = required.filter((asset) => asset.loaded).length;
+  const progress = total > 0 ? completed / total : 1;
+  const active = completed < total || failed > 0;
 
   return {
     active,
     loaded,
+    failed,
     total,
     progress,
-    label: active ? `Loading assets ${loaded}/${total}` : "Ready",
+    label: failed > 0 ? `Asset load failed ${failed}/${total}` : active ? `Loading assets ${completed}/${total}` : "Ready",
   };
 }
 
@@ -1036,9 +1041,17 @@ export function unmountCanvas() {
 
 export function startGame() {
   ensureGameplaySpriteAssets(0);
+  loadingData = snapshotLoading(state);
+  if (loadingData.active) {
+    syncUi(state);
+    wakeFrameLoop();
+    return false;
+  }
+
   state = createInitialState("playing");
   syncUi(state);
   wakeFrameLoop();
+  return true;
 }
 
 export function pauseGame() {
@@ -3113,23 +3126,27 @@ function resolveAssetUrl(path: string) {
 function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 0) {
   const image = new Image();
   const resolvedUrl = resolveAssetUrl(asset.path);
+  let settled = false;
 
-  asset.loaded = false;
-  asset.image = image;
-  image.decoding = "async";
-  image.onload = () => {
-    asset.loaded = true;
-    emitUi();
-  };
-  image.onerror = () => {
-    const nextDelay = IMAGE_LOAD_RETRY_DELAYS_MS[attempt];
-
-    if (nextDelay !== undefined) {
-      window.setTimeout(() => loadImageWithRetry(asset, label, attempt + 1), nextDelay);
+  const finishLoad = () => {
+    if (settled || asset.image !== image) {
       return;
     }
 
+    settled = true;
     asset.loaded = true;
+    asset.failed = false;
+    emitUi();
+  };
+
+  const finishFailure = () => {
+    if (settled || asset.image !== image) {
+      return;
+    }
+
+    settled = true;
+    asset.loaded = true;
+    asset.failed = true;
     asset.image = null;
     console.warn(
       `[Zombie Apocalypse Survival] Failed to load ${label} after ${attempt + 1} attempts: ${asset.path}`,
@@ -3137,6 +3154,36 @@ function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 
     );
     emitUi();
   };
+
+  const retryOrFail = () => {
+    if (settled || asset.image !== image) {
+      return;
+    }
+
+    const nextDelay = IMAGE_LOAD_RETRY_DELAYS_MS[attempt];
+
+    if (nextDelay !== undefined) {
+      settled = true;
+      window.setTimeout(() => loadImageWithRetry(asset, label, attempt + 1), nextDelay);
+      return;
+    }
+
+    finishFailure();
+  };
+
+  asset.loaded = false;
+  asset.failed = false;
+  asset.image = image;
+  image.decoding = "async";
+  image.onload = () => {
+    if (typeof image.decode === "function") {
+      void image.decode().then(finishLoad, retryOrFail);
+      return;
+    }
+
+    finishLoad();
+  };
+  image.onerror = retryOrFail;
   image.src = resolvedUrl;
 }
 

@@ -56,12 +56,14 @@ export function GameCanvas({
   }, []);
 
   function tryStart() {
-    if (!canStartRun) {
+    const currentLoading = getLoadingData();
+    if (!canStartRun || currentLoading.active) {
+      setLoading({ ...currentLoading });
       return;
     }
 
-    if (onRunStart()) {
-      startGame();
+    if (onRunStart() && !startGame()) {
+      setLoading({ ...getLoadingData() });
     }
   }
 
@@ -146,11 +148,13 @@ export function GameCanvas({
                   className="za-button za-button--primary"
                   type="button"
                   onClick={tryStart}
-                  disabled={!canStartRun}
+                  disabled={!canStartRun || loading.active}
                 >
-                  Start run
+                  {loading.active ? "Loading assets..." : "Start run"}
                 </button>
-                {!canStartRun && <p className="za-note">{startDisabledReason}</p>}
+                {(loading.active || !canStartRun) && (
+                  <p className="za-note">{loading.active ? loading.label : startDisabledReason}</p>
+                )}
               </div>
             ) : hud.status === "paused" ? (
               <div className="za-overlay-card">
@@ -164,9 +168,9 @@ export function GameCanvas({
                     className="za-button za-button--secondary"
                     type="button"
                     onClick={tryStart}
-                    disabled={!canStartRun}
+                    disabled={!canStartRun || loading.active}
                   >
-                    Restart
+                    {loading.active ? "Loading assets..." : "Restart"}
                   </button>
                   <button className="za-button za-button--ghost" type="button" onClick={() => {
                     pauseGame();
@@ -192,15 +196,17 @@ export function GameCanvas({
                     className="za-button za-button--primary"
                     type="button"
                     onClick={tryStart}
-                    disabled={!canStartRun}
+                    disabled={!canStartRun || loading.active}
                   >
-                    Restart
+                    {loading.active ? "Loading assets..." : "Restart"}
                   </button>
                   <button className="za-button za-button--ghost" type="button" onClick={goToMenu}>
                     Main menu
                   </button>
                 </div>
-                {!canStartRun && <p className="za-note">{startDisabledReason}</p>}
+                {(loading.active || !canStartRun) && (
+                  <p className="za-note">{loading.active ? loading.label : startDisabledReason}</p>
+                )}
               </div>
             )}
           </div>
