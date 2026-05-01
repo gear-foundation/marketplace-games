@@ -283,10 +283,17 @@ type ZombieStrip = {
 };
 
 type PlayerStrip = ZombieStrip;
+type ImageSourceRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 type ImageAsset = {
   path: string;
   image: HTMLImageElement | null;
   loaded: boolean;
+  source?: ImageSourceRect;
 };
 
 type LoadableImageAsset = ZombieStrip | ImageAsset;
@@ -709,26 +716,31 @@ const bonusImageAssets: {
     path: "/assets/bonuses/small-medkit.webp",
     image: null,
     loaded: false,
+    source: { x: 345, y: 346, width: 566, height: 513 },
   },
   big_medkit: {
     path: "/assets/bonuses/big-medkit.webp",
     image: null,
     loaded: false,
+    source: { x: 153, y: 160, width: 965, height: 859 },
   },
   shield: {
     path: "/assets/bonuses/shield.webp",
     image: null,
     loaded: false,
+    source: { x: 302, y: 223, width: 650, height: 760 },
   },
   airstrike: {
     path: "/assets/bonuses/airstrike.webp",
     image: null,
     loaded: false,
+    source: { x: 167, y: 89, width: 916, height: 1084 },
   },
   speed: {
     path: "/assets/bonuses/speed.webp",
     image: null,
     loaded: false,
+    source: { x: 131, y: 124, width: 978, height: 969 },
   },
 };
 
@@ -737,11 +749,13 @@ const effectImageAssets: { acid_pool: ImageAsset; acid_spit: ImageAsset } = {
     path: "/assets/effects/acid-pool.webp",
     image: null,
     loaded: false,
+    source: { x: 71, y: 156, width: 1107, height: 937 },
   },
   acid_spit: {
     path: "/assets/effects/acid-spit.webp",
     image: null,
     loaded: false,
+    source: { x: 25, y: 220, width: 1187, height: 767 },
   },
 };
 
@@ -2541,8 +2555,7 @@ function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: 
       renderingContext.beginPath();
       renderingContext.arc(0, 0, projectile.radius + 8, 0, Math.PI * 2);
       renderingContext.fill();
-      renderingContext.imageSmoothingEnabled = true;
-      renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+      drawImageAssetCentered(renderingContext, asset, size);
       renderingContext.restore();
     } else {
       renderingContext.fillStyle = "#6cff9d";
@@ -2607,6 +2620,35 @@ function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: 
   }
 
   renderingContext.restore();
+}
+
+function drawImageAssetCentered(renderingContext: CanvasRenderingContext2D, asset: ImageAsset, size: number) {
+  if (!asset.image) {
+    return;
+  }
+
+  const source = asset.source ?? {
+    x: 0,
+    y: 0,
+    width: asset.image.naturalWidth || asset.image.width,
+    height: asset.image.naturalHeight || asset.image.height,
+  };
+  const sourceAspect = source.width / source.height;
+  const drawWidth = sourceAspect >= 1 ? size : size * sourceAspect;
+  const drawHeight = sourceAspect >= 1 ? size / sourceAspect : size;
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(
+    asset.image,
+    source.x,
+    source.y,
+    source.width,
+    source.height,
+    -drawWidth / 2,
+    -drawHeight / 2,
+    drawWidth,
+    drawHeight,
+  );
 }
 
 function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
@@ -2694,8 +2736,7 @@ function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus:
   renderingContext.arc(0, 0, bonus.radius + 1.5, 0, Math.PI * 2);
   renderingContext.fill();
 
-  renderingContext.imageSmoothingEnabled = true;
-  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  drawImageAssetCentered(renderingContext, asset, size);
   return true;
 }
 
@@ -2737,8 +2778,7 @@ function drawBigMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: B
   renderingContext.arc(0, 0, bonus.radius + 2.5, 0, Math.PI * 2);
   renderingContext.fill();
 
-  renderingContext.imageSmoothingEnabled = true;
-  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  drawImageAssetCentered(renderingContext, asset, size);
   return true;
 }
 
@@ -2763,8 +2803,7 @@ function drawShieldBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonu
   renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
   renderingContext.stroke();
 
-  renderingContext.imageSmoothingEnabled = true;
-  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  drawImageAssetCentered(renderingContext, asset, size);
   return true;
 }
 
@@ -2789,8 +2828,7 @@ function drawAirstrikeBonus(renderingContext: CanvasRenderingContext2D, bonus: B
   renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
   renderingContext.stroke();
 
-  renderingContext.imageSmoothingEnabled = true;
-  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  drawImageAssetCentered(renderingContext, asset, size);
   return true;
 }
 
@@ -2815,8 +2853,7 @@ function drawSpeedBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus
   renderingContext.arc(0, 0, glowRadius + 2, 0, Math.PI * 2);
   renderingContext.stroke();
 
-  renderingContext.imageSmoothingEnabled = true;
-  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  drawImageAssetCentered(renderingContext, asset, size);
   return true;
 }
 
@@ -2840,8 +2877,7 @@ function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool
     renderingContext.arc(0, 0, pool.radius * 1.08, 0, Math.PI * 2);
     renderingContext.fill();
 
-    renderingContext.imageSmoothingEnabled = true;
-    renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+    drawImageAssetCentered(renderingContext, asset, size);
     renderingContext.restore();
     return;
   }
