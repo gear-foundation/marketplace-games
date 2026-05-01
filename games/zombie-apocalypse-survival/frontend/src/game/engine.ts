@@ -866,31 +866,21 @@ function snapshotHud(current: GameState): HudData {
 }
 
 function collectRequiredLoadables(current: GameState) {
-  const time = current.status === "menu" ? 0 : current.time;
   const loadables: Array<{ loaded: boolean }> = [
     arenaImageAsset,
     ...Object.values(effectImageAssets),
     ...Object.values(bonusImageAssets),
     ...Object.values(playerSharedStrips),
     ...Object.values(playerWeaponStrips.pistol),
+    ...Object.values(playerWeaponStrips.rifle),
+    ...Object.values(playerWeaponStrips.bazooka),
+    ...Object.values(playerWeaponStrips.flamethrower),
     ...Object.values(normalZombieStrips),
     ...Object.values(acidZombieStrips),
+    ...Object.values(ninjaZombieStrips),
+    ...Object.values(tankZombieStrips),
+    flamethrowerFireStrip,
   ];
-
-  if (time >= 60) {
-    loadables.push(...Object.values(playerWeaponStrips.rifle));
-    loadables.push(...Object.values(ninjaZombieStrips));
-  }
-
-  if (time >= 120) {
-    loadables.push(...Object.values(playerWeaponStrips.bazooka));
-    loadables.push(...Object.values(tankZombieStrips));
-  }
-
-  if (time >= 180) {
-    loadables.push(...Object.values(playerWeaponStrips.flamethrower));
-    loadables.push(flamethrowerFireStrip);
-  }
 
   return loadables;
 }
@@ -3181,27 +3171,19 @@ function ensurePlayerSharedSpriteAssets() {
 }
 
 function ensureGameplaySpriteAssets(time: number) {
+  void time;
   ensureArenaBackgroundAsset();
   ensureEffectSpriteAssets();
   ensureBonusSpriteAssets();
   ensureNormalZombieSpriteAssets();
   ensureAcidZombieSpriteAssets();
+  ensureNinjaZombieSpriteAssets();
+  ensureTankZombieSpriteAssets();
   ensurePlayerSharedSpriteAssets();
   ensurePlayerWeaponSpriteAssets("pistol");
-
-  if (time >= 60 - ASSET_PRELOAD_LEAD_TIME) {
-    ensureNinjaZombieSpriteAssets();
-    ensurePlayerWeaponSpriteAssets("rifle");
-  }
-
-  if (time >= 120 - ASSET_PRELOAD_LEAD_TIME) {
-    ensureTankZombieSpriteAssets();
-    ensurePlayerWeaponSpriteAssets("bazooka");
-  }
-
-  if (time >= 180 - ASSET_PRELOAD_LEAD_TIME) {
-    ensurePlayerWeaponSpriteAssets("flamethrower");
-  }
+  ensurePlayerWeaponSpriteAssets("rifle");
+  ensurePlayerWeaponSpriteAssets("bazooka");
+  ensurePlayerWeaponSpriteAssets("flamethrower");
 }
 
 function drawNormalZombieSprite(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
