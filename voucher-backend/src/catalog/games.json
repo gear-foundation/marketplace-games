@@ -142,5 +142,23 @@
       "duration": 86400,
       "oneTime": false
     }
+  },
+  {
+    "slug": "zombie-apocalypse-survival",
+    "title": "Zombie Apocalypse Survival",
+    "description": "A top-down survival shooter where you outlast waves of zombies and submit your best run on-chain.",
+    "frontendUrl": null,
+    "contractAddress": "0x2f683b880bc03933678250cde86656bb0ddaac526bcfb3e6b5870027ade04a56",
+    "imageUrl": null,
+    "tags": ["Shooter", "Leaderboard", "Gas voucher"],
+    "status": "hidden",
+    "sortOrder": 70,
+    "gasless": {
+      "enabled": true,
+      "name": "ZombieApocalypseSurvival",
+      "weight": 1,
+      "duration": 86400,
+      "oneTime": false
+    }
   }
 ]

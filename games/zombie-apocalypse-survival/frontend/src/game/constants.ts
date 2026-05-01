@@ -6,6 +6,6 @@ export const CANVAS_H = 720;
 export const WEAPON_LABELS: Record<WeaponType, string> = {
   pistol: "Pistol",
   machine_gun: "Machine Gun",
-  shotgun: "Shotgun",
   bazooka: "Bazooka",
+  flamethrower: "Flamethrower",
 };

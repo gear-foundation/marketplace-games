@@ -1,23 +1,24 @@
-import { useCallback, useState } from "react";
-import { AccountProvider, AlertProvider, ApiProvider } from "@gear-js/react-hooks";
-import { Alert, alertStyles } from "@gear-js/ui";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { GameCanvas } from "./components/GameCanvas";
-import { ZombieChainPanel, type PlayAccess } from "./components/ZombieChainPanel";
+import { ZombieChainPanelOffline } from "./components/ZombieChainPanelOffline";
+import type { PlayAccess } from "./components/playAccess";
 import type { GameEndPayload } from "./game/types";
 
-const APP_NAME = "Zombie Apocalypse Survival";
-const VARA_NODE_ADDRESS = import.meta.env.VITE_NODE_ADDRESS || "wss://rpc.vara.network";
-const CHAIN_ENABLED = import.meta.env.VITE_ENABLE_CHAIN === "true";
-const queryClient = new QueryClient();
+const CHAIN_ENABLED = import.meta.env.VITE_ENABLE_CHAIN !== "false";
+const ZombieChainRuntime = lazy(() => import("./components/ZombieChainRuntime"));
+const ZombieChainPanel = lazy(() =>
+  import("./components/ZombieChainPanel").then((module) => ({ default: module.ZombieChainPanel })),
+);
 
-const initialPlayAccess: PlayAccess = {
-  canPlay: !CHAIN_ENABLED,
-  title: CHAIN_ENABLED ? "Loading wallet" : "Local mode enabled",
-  description: CHAIN_ENABLED
-    ? "Wallet providers are still loading. The arena unlocks as soon as your Vara session is ready."
-    : "Wallet, contract, and voucher flows are disabled for now. The game runs entirely locally.",
-};
+function createInitialPlayAccess(chainEnabled: boolean): PlayAccess {
+  return {
+    canPlay: !chainEnabled,
+    title: chainEnabled ? "Loading wallet" : "Local mode enabled",
+    description: chainEnabled
+      ? "Wallet providers are still loading. The arena unlocks as soon as your Vara session is ready."
+      : "Wallet, contract, and voucher flows are disabled for now. The game runs entirely locally.",
+  };
+}
 
 export function ZombieApocalypseApp() {
   if (!CHAIN_ENABLED) {
@@ -25,23 +26,19 @@ export function ZombieApocalypseApp() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ApiProvider initialArgs={{ endpoint: VARA_NODE_ADDRESS }}>
-        <AccountProvider appName={APP_NAME}>
-          <AlertProvider template={Alert} containerClassName={alertStyles.root}>
-            <ZombieApocalypseContent chainEnabled />
-          </AlertProvider>
-        </AccountProvider>
-      </ApiProvider>
-    </QueryClientProvider>
+    <Suspense fallback={<ZombieAppLoading />}>
+      <ZombieChainRuntime>
+        <ZombieApocalypseContent chainEnabled />
+      </ZombieChainRuntime>
+    </Suspense>
   );
 }
 
 function ZombieApocalypseContent({ chainEnabled }: { chainEnabled: boolean }) {
   const [gameSessionId, setGameSessionId] = useState(1);
   const [pendingRun, setPendingRun] = useState<GameEndPayload | null>(null);
-  const [playAccess, setPlayAccess] = useState<PlayAccess>(initialPlayAccess);
-  const [isCurrentSessionSubmitted, setIsCurrentSessionSubmitted] = useState(!CHAIN_ENABLED);
+  const [playAccess, setPlayAccess] = useState<PlayAccess>(() => createInitialPlayAccess(chainEnabled));
+  const [isCurrentSessionSubmitted, setIsCurrentSessionSubmitted] = useState(!chainEnabled);
 
   const canStartRun = playAccess.canPlay && (!chainEnabled || pendingRun === null || isCurrentSessionSubmitted);
   const startDisabledReason = !playAccess.canPlay
@@ -79,41 +76,62 @@ function ZombieApocalypseContent({ chainEnabled }: { chainEnabled: boolean }) {
       </section>
 
       <aside className="za-panel">
-        <section className="za-brand">
-          <p className="za-kicker">Top-Down Survival</p>
-          <h1>Zombie Apocalypse Survival</h1>
-          <p className="za-copy">
-            {chainEnabled
-              ? "Hold the quarantine zone, swap weapons as the night gets worse, and bank your best survival score on Vara."
-              : "Hold the quarantine zone, swap weapons as the night gets worse, and iterate on the core survival loop locally without wallet friction."}
-          </p>
-        </section>
-
-        {pendingRun && (
-          <section className="za-run-summary" aria-label="Last run summary">
-            <div>
-              <span>Time</span>
-              <strong>{pendingRun.survivalSeconds}s</strong>
-            </div>
-            <div>
-              <span>Kills</span>
-              <strong>{pendingRun.kills}</strong>
-            </div>
-            <div>
-              <span>Score</span>
-              <strong>{pendingRun.score.toLocaleString()}</strong>
-            </div>
-          </section>
+        {chainEnabled ? (
+          <Suspense fallback={<ZombieChainPanelSkeleton />}>
+            <ZombieChainPanel
+              chainEnabled
+              gameSessionId={gameSessionId}
+              pendingRun={pendingRun}
+              onPlayAccessChange={setPlayAccess}
+              onSessionSubmitStateChange={setIsCurrentSessionSubmitted}
+            />
+          </Suspense>
+        ) : (
+          <ZombieChainPanelOffline
+            pendingRun={pendingRun}
+            onPlayAccessChange={setPlayAccess}
+            onSessionSubmitStateChange={setIsCurrentSessionSubmitted}
+          />
         )}
-
-        <ZombieChainPanel
-          chainEnabled={chainEnabled}
-          gameSessionId={gameSessionId}
-          pendingRun={pendingRun}
-          onPlayAccessChange={setPlayAccess}
-          onSessionSubmitStateChange={setIsCurrentSessionSubmitted}
-        />
       </aside>
     </main>
+  );
+}
+
+function ZombieAppLoading() {
+  return (
+    <main className="za-shell">
+      <section className="za-stage-pane">
+        <div className="za-stage-card">
+          <div className="za-viewport">
+            <div className="za-overlay">
+              <div className="za-overlay-card">
+                <p className="za-kicker">Vara Session</p>
+                <h2>Loading wallet runtime</h2>
+                <p>The arena will open as soon as the chain session is ready.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function ZombieChainPanelSkeleton() {
+  return (
+    <section className="za-card za-chain-panel" aria-label="Chain panel loading">
+      <div className="za-panel-head">
+        <div>
+          <p className="za-card-kicker">Vara Session</p>
+          <h2>Loading</h2>
+        </div>
+        <span className="za-chip">Syncing</span>
+      </div>
+      <div className="za-connection-state">
+        <strong>Preparing chain session</strong>
+        <p>The arena will unlock as soon as the wallet runtime is ready.</p>
+      </div>
+    </section>
   );
 }

@@ -71,6 +71,12 @@ export function sfxShotgun() {
   playTone(180, 0.16, "sawtooth", 0.045, -100);
 }
 
+export function sfxFlamethrower() {
+  playNoise(0.06, 0.03);
+  playTone(240, 0.08, "sawtooth", 0.02, -50);
+  playTone(320, 0.05, "triangle", 0.012, 40);
+}
+
 export function sfxRocketLaunch() {
   playTone(120, 0.24, "sawtooth", 0.05, 260);
 }

@@ -39,23 +39,6 @@
         "fps": 20
       }
     },
-    "shotgun": {
-      "idle": {
-        "file": "hero-shotgun-idle.webp",
-        "frames": 4,
-        "fps": 5
-      },
-      "walk": {
-        "file": "hero-shotgun-walk.webp",
-        "frames": 8,
-        "fps": 12
-      },
-      "shoot": {
-        "file": "hero-shotgun-shoot.webp",
-        "frames": 6,
-        "fps": 14
-      }
-    },
     "bazooka": {
       "idle": {
         "file": "hero-bazooka-idle.webp",
@@ -71,6 +54,23 @@
         "file": "hero-bazooka-shoot.webp",
         "frames": 7,
         "fps": 11
+      }
+    },
+    "flamethrower": {
+      "idle": {
+        "file": "hero-flamethrower-idle.webp",
+        "frames": 4,
+        "fps": 5
+      },
+      "walk": {
+        "file": "hero-flamethrower-walk.webp",
+        "frames": 8,
+        "fps": 11
+      },
+      "shoot": {
+        "file": "hero-flamethrower-shoot.webp",
+        "frames": 6,
+        "fps": 16
       }
     }
   },

@@ -1,0 +1,15 @@
+[package]
+name = "robo-save-eny-contract-app"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Package containing Robo. Save Eny! contract business logic"
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+sails-rs.workspace = true
+scale-info.workspace = true

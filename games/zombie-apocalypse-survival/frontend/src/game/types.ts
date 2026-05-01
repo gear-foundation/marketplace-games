@@ -1,5 +1,5 @@
 export type GameStatus = "menu" | "playing" | "paused" | "game_over";
-export type WeaponType = "pistol" | "machine_gun" | "shotgun" | "bazooka";
+export type WeaponType = "pistol" | "machine_gun" | "bazooka" | "flamethrower";
 
 export type GameEndPayload = {
   score: number;
@@ -26,4 +26,12 @@ export type HudData = {
   banner: string;
   bannerTimer: number;
   result: GameEndPayload | null;
+};
+
+export type LoadingData = {
+  active: boolean;
+  loaded: number;
+  total: number;
+  progress: number;
+  label: string;
 };

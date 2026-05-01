@@ -3,20 +3,20 @@ import { attachInput, clearInputFrame, detachInput, getInput, resetInput } from 
 import {
   sfxAcid,
   sfxExplosion,
+  sfxFlamethrower,
   sfxGameOver,
   sfxHit,
   sfxMachineGun,
   sfxPickup,
   sfxPistol,
   sfxRocketLaunch,
-  sfxShotgun,
   sfxWeaponUpgrade,
 } from "./sound";
-import type { GameEndPayload, GameStatus, HudData, WeaponType } from "./types";
+import type { GameEndPayload, GameStatus, HudData, LoadingData, WeaponType } from "./types";
 
 type EnemyType = "normal" | "acid" | "ninja" | "tank";
 type BonusType = "small_medkit" | "big_medkit" | "speed" | "shield" | "airstrike";
-type ProjectileType = "bullet" | "rocket" | "acid_spit";
+type ProjectileType = "bullet" | "rocket" | "acid_spit" | "flame";
 type EdgeSide = "top" | "bottom" | "left" | "right";
 type EnemyState =
   | "approaching"
@@ -28,7 +28,7 @@ type EnemyState =
   | "smash"
   | "recovery"
   | "roar";
-type PlayerWeaponStripKey = "pistol" | "rifle" | "shotgun" | "bazooka";
+type PlayerWeaponStripKey = "pistol" | "rifle" | "bazooka" | "flamethrower";
 type PlayerWeaponStripName = "idle" | "walk" | "shoot";
 type PlayerSharedStripName = "hit" | "stunned" | "death";
 type Vec2 = { x: number; y: number };
@@ -52,12 +52,11 @@ type Player = {
   machineStreamActive: boolean;
   machineStreamTimer: number;
   machineStreamAngle: number;
-  shotgunCooldown: number;
-  shotgunCharging: boolean;
-  shotgunChargeTime: number;
   bazookaCooldown: number;
   bazookaPendingDelay: number;
   bazookaPendingAngle: number;
+  flamethrowerStreamActive: boolean;
+  flamethrowerTickTimer: number;
   idlePhase: number;
   movePhase: number;
   movingAnim: boolean;
@@ -119,6 +118,7 @@ type Projectile = {
   targetX?: number;
   targetY?: number;
   harpoonedEnemyIds?: string[];
+  hitEnemyIds?: string[];
   alive: boolean;
 };
 
@@ -177,6 +177,8 @@ type GameState = {
 };
 
 const STEP_MS = 1000 / 60;
+const LOW_POWER_FRAME_MS = 1000 / 12;
+const MAX_CANVAS_DPR = 1.5;
 const PLAYER_RADIUS = 18;
 const PLAYER_SPEED = 280;
 const PLAYER_ROTATION_SPEED = 2.8;
@@ -214,15 +216,17 @@ const NINJA_ATTACK_RANGE = 40;
 const TANK_ATTACK_RANGE = 74;
 const TANK_ROAR_TRIGGER_RANGE = 260;
 const ACID_STOP_DISTANCE = CANVAS_H * 0.08;
-const ACID_POOL_RADIUS = CANVAS_H * 0.07;
-const SHOTGUN_NORMAL_RANGE = CANVAS_H / 3;
-const SHOTGUN_CHARGED_RANGE = (CANVAS_H * 2) / 3;
-const SHOTGUN_KNOCKBACK = CANVAS_H * 0.15;
-const SHOTGUN_CONE_HALF_ANGLE = (45 * Math.PI) / 180 / 2;
+const ACID_POOL_RADIUS = CANVAS_H * 0.055;
 const BAZOOKA_RANGE = CANVAS_H / 2;
+const FLAMETHROWER_RANGE = CANVAS_H * 0.42;
+const FLAMETHROWER_SPEED = 540;
+const FLAMETHROWER_INTERVAL = 0.075;
+const FLAMETHROWER_DAMAGE = 34;
+const FLAMETHROWER_RADIUS = 20;
 const EXPLOSION_RADIUS = CANVAS_H * 0.1;
 const BANNER_DURATION = 2.1;
 const MACHINE_STREAM_INTERVAL = 0.12;
+const ASSET_PRELOAD_LEAD_TIME = 6;
 const TIME_SCORE_FACTOR = 25;
 const KILL_SCORE = 120;
 const NORMAL_ZOMBIE_BASE_FACING = Math.PI / 2;
@@ -252,14 +256,19 @@ const NINJA_ZOMBIE_PIVOT_Y = 0.48;
 const TANK_ZOMBIE_BASE_FACING = Math.PI / 2;
 const TANK_ZOMBIE_FRAME_W = 768;
 const TANK_ZOMBIE_FRAME_H = 768;
-const TANK_ZOMBIE_DRAW_SCALE = 0.28;
+const TANK_ZOMBIE_DRAW_SCALE = 0.42;
 const TANK_ZOMBIE_PIVOT_X = 0.5;
 const TANK_ZOMBIE_PIVOT_Y = 0.48;
 const SMALL_MEDKIT_DRAW_SIZE = 42;
 const BIG_MEDKIT_DRAW_SIZE = 50;
 const SHIELD_BONUS_DRAW_SIZE = 46;
 const AIRSTRIKE_BONUS_DRAW_SIZE = 50;
-const ACID_POOL_ART_SCALE = 2.35;
+const SPEED_BONUS_DRAW_SIZE = 46;
+const ACID_POOL_ART_SCALE = 2.15;
+const ACID_SPIT_DRAW_SIZE = 52;
+const FLAMETHROWER_STREAM_DRAW_SIZE = 92;
+const FLAMETHROWER_STREAM_FRAME_W = 320;
+const FLAMETHROWER_STREAM_FRAME_H = 320;
 
 type ZombieStripName = "idle" | "walk" | "attack" | "hit" | "death";
 type ZombieStrip = {
@@ -596,35 +605,6 @@ const playerWeaponStrips: Record<PlayerWeaponStripKey, Record<PlayerWeaponStripN
       loaded: false,
     },
   },
-  shotgun: {
-    idle: {
-      path: "/assets/player/weapons/shotgun/hero-shotgun-idle.webp",
-      frames: 4,
-      fps: 5,
-      width: PLAYER_SPRITE_FRAME_W,
-      height: PLAYER_SPRITE_FRAME_H,
-      image: null,
-      loaded: false,
-    },
-    walk: {
-      path: "/assets/player/weapons/shotgun/hero-shotgun-walk.webp",
-      frames: 8,
-      fps: 12,
-      width: PLAYER_SPRITE_FRAME_W,
-      height: PLAYER_SPRITE_FRAME_H,
-      image: null,
-      loaded: false,
-    },
-    shoot: {
-      path: "/assets/player/weapons/shotgun/hero-shotgun-shoot.webp",
-      frames: 6,
-      fps: 14,
-      width: PLAYER_SPRITE_FRAME_W,
-      height: PLAYER_SPRITE_FRAME_H,
-      image: null,
-      loaded: false,
-    },
-  },
   bazooka: {
     idle: {
       path: "/assets/player/weapons/bazooka/hero-bazooka-idle.webp",
@@ -648,6 +628,35 @@ const playerWeaponStrips: Record<PlayerWeaponStripKey, Record<PlayerWeaponStripN
       path: "/assets/player/weapons/bazooka/hero-bazooka-shoot.webp",
       frames: 7,
       fps: 11,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+  },
+  flamethrower: {
+    idle: {
+      path: "/assets/player/weapons/flamethrower/hero-flamethrower-idle.webp",
+      frames: 4,
+      fps: 5,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    walk: {
+      path: "/assets/player/weapons/flamethrower/hero-flamethrower-walk.webp",
+      frames: 8,
+      fps: 11,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    shoot: {
+      path: "/assets/player/weapons/flamethrower/hero-flamethrower-shoot.webp",
+      frames: 6,
+      fps: 16,
       width: PLAYER_SPRITE_FRAME_W,
       height: PLAYER_SPRITE_FRAME_H,
       image: null,
@@ -691,6 +700,7 @@ const bonusImageAssets: {
   big_medkit: ImageAsset;
   shield: ImageAsset;
   airstrike: ImageAsset;
+  speed: ImageAsset;
 } = {
   small_medkit: {
     path: "/assets/bonuses/small-medkit.webp",
@@ -712,14 +722,34 @@ const bonusImageAssets: {
     image: null,
     loaded: false,
   },
+  speed: {
+    path: "/assets/bonuses/speed.webp",
+    image: null,
+    loaded: false,
+  },
 };
 
-const effectImageAssets: { acid_pool: ImageAsset } = {
+const effectImageAssets: { acid_pool: ImageAsset; acid_spit: ImageAsset } = {
   acid_pool: {
     path: "/assets/effects/acid-pool.webp",
     image: null,
     loaded: false,
   },
+  acid_spit: {
+    path: "/assets/effects/acid-spit.webp",
+    image: null,
+    loaded: false,
+  },
+};
+
+const flamethrowerFireStrip: ZombieStrip = {
+  path: "/assets/effects/flamethrower-fire.webp",
+  frames: 6,
+  fps: 18,
+  width: FLAMETHROWER_STREAM_FRAME_W,
+  height: FLAMETHROWER_STREAM_FRAME_H,
+  image: null,
+  loaded: false,
 };
 
 const arenaImageAsset: ImageAsset = {
@@ -730,21 +760,27 @@ const arenaImageAsset: ImageAsset = {
 
 let state = createInitialState("menu");
 let hudData = snapshotHud(state);
+let loadingData = snapshotLoading(state);
 let rafId = 0;
+let lowPowerTimerId = 0;
 let lastTs = 0;
+let lastLowPowerTs = 0;
 let accumulator = 0;
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
 let onEndCallback: ((payload: GameEndPayload) => void) | null = null;
+let canvasResizeObserver: ResizeObserver | null = null;
 let idCounter = 0;
 let normalZombieSpritesRequested = false;
 let acidZombieSpritesRequested = false;
 let ninjaZombieSpritesRequested = false;
 let tankZombieSpritesRequested = false;
-let playerSpritesRequested = false;
+let playerSharedSpritesRequested = false;
+const playerWeaponSpritesRequested: Partial<Record<PlayerWeaponStripKey, boolean>> = {};
 let bonusSpritesRequested = false;
 let effectSpritesRequested = false;
 let arenaBackgroundRequested = false;
+const uiSubscribers = new Set<() => void>();
 
 function nextId(prefix: string) {
   idCounter += 1;
@@ -755,7 +791,7 @@ function createPlayer(): Player {
   return {
     x: CANVAS_W / 2,
     y: CANVAS_H / 2,
-    angle: -Math.PI / 2,
+    angle: PLAYER_SPRITE_BASE_FACING,
     radius: PLAYER_RADIUS,
     health: 100,
     maxHealth: 100,
@@ -771,12 +807,11 @@ function createPlayer(): Player {
     machineStreamActive: false,
     machineStreamTimer: 0,
     machineStreamAngle: 0,
-    shotgunCooldown: 0,
-    shotgunCharging: false,
-    shotgunChargeTime: 0,
     bazookaCooldown: 0,
     bazookaPendingDelay: 0,
     bazookaPendingAngle: 0,
+    flamethrowerStreamActive: false,
+    flamethrowerTickTimer: 0,
     idlePhase: 0,
     movePhase: 0,
     movingAnim: false,
@@ -811,10 +846,6 @@ function createInitialState(status: GameStatus): GameState {
 }
 
 function snapshotHud(current: GameState): HudData {
-  const chargeRatio = current.player.shotgunCharging
-    ? Math.min(1, current.player.shotgunChargeTime / 1)
-    : 0;
-
   return {
     status: current.status,
     health: Math.max(0, Math.ceil(current.player.health)),
@@ -826,34 +857,151 @@ function snapshotHud(current: GameState): HudData {
     shieldTime: Math.ceil(current.player.shieldTimer),
     speedTime: Math.ceil(current.player.speedBoostTimer),
     stunTime: Math.ceil(current.player.stunTimer),
-    shotgunCharge: chargeRatio,
-    shotgunCharged: chargeRatio >= 1,
+    shotgunCharge: 0,
+    shotgunCharged: false,
     banner: current.bannerText,
     bannerTimer: current.bannerTimer,
     result: current.result,
   };
 }
 
+function collectRequiredLoadables(current: GameState) {
+  const time = current.status === "menu" ? 0 : current.time;
+  const loadables: Array<{ loaded: boolean }> = [
+    arenaImageAsset,
+    ...Object.values(effectImageAssets),
+    ...Object.values(bonusImageAssets),
+    ...Object.values(playerSharedStrips),
+    ...Object.values(playerWeaponStrips.pistol),
+    ...Object.values(normalZombieStrips),
+    ...Object.values(acidZombieStrips),
+  ];
+
+  if (time >= 60) {
+    loadables.push(...Object.values(playerWeaponStrips.rifle));
+    loadables.push(...Object.values(ninjaZombieStrips));
+  }
+
+  if (time >= 120) {
+    loadables.push(...Object.values(playerWeaponStrips.bazooka));
+    loadables.push(...Object.values(tankZombieStrips));
+  }
+
+  if (time >= 180) {
+    loadables.push(...Object.values(playerWeaponStrips.flamethrower));
+    loadables.push(flamethrowerFireStrip);
+  }
+
+  return loadables;
+}
+
+function snapshotLoading(current: GameState): LoadingData {
+  const required = collectRequiredLoadables(current);
+  const total = required.length;
+  const loaded = required.filter((asset) => asset.loaded).length;
+  const progress = total > 0 ? loaded / total : 1;
+  const active = loaded < total;
+
+  return {
+    active,
+    loaded,
+    total,
+    progress,
+    label: active ? `Loading assets ${loaded}/${total}` : "Ready",
+  };
+}
+
+function emitUi() {
+  loadingData = snapshotLoading(state);
+  for (const subscriber of uiSubscribers) {
+    subscriber();
+  }
+}
+
+function syncUi(current: GameState) {
+  hudData = snapshotHud(current);
+  emitUi();
+}
+
 export function getHudData() {
   return hudData;
+}
+
+export function getLoadingData() {
+  return loadingData;
+}
+
+export function subscribeUi(callback: () => void) {
+  uiSubscribers.add(callback);
+  return () => {
+    uiSubscribers.delete(callback);
+  };
+}
+
+function syncCanvasSize() {
+  if (!canvas) {
+    return;
+  }
+
+  const bounds = canvas.getBoundingClientRect();
+  const dpr = Math.min(MAX_CANVAS_DPR, Math.max(1, window.devicePixelRatio || 1));
+  const nextW = Math.max(1, Math.round(bounds.width * dpr));
+  const nextH = Math.max(1, Math.round(bounds.height * dpr));
+
+  if (canvas.width !== nextW || canvas.height !== nextH) {
+    canvas.width = nextW;
+    canvas.height = nextH;
+  }
+}
+
+function attachCanvasResize(el: HTMLCanvasElement) {
+  detachCanvasResize();
+  syncCanvasSize();
+  window.addEventListener("resize", syncCanvasSize);
+
+  if (typeof ResizeObserver !== "undefined") {
+    canvasResizeObserver = new ResizeObserver(() => syncCanvasSize());
+    canvasResizeObserver.observe(el);
+  }
+}
+
+function detachCanvasResize() {
+  window.removeEventListener("resize", syncCanvasSize);
+  canvasResizeObserver?.disconnect();
+  canvasResizeObserver = null;
+}
+
+function scheduleFrame(delayMs = 0) {
+  if (delayMs > 0) {
+    lowPowerTimerId = window.setTimeout(() => {
+      lowPowerTimerId = 0;
+      rafId = requestAnimationFrame(frame);
+    }, delayMs);
+    return;
+  }
+
+  rafId = requestAnimationFrame(frame);
+}
+
+function wakeFrameLoop() {
+  if (lowPowerTimerId) {
+    window.clearTimeout(lowPowerTimerId);
+    lowPowerTimerId = 0;
+  }
+
+  if (!rafId) {
+    scheduleFrame();
+  }
 }
 
 export function mountCanvas(el: HTMLCanvasElement, onEnd: (payload: GameEndPayload) => void) {
   canvas = el;
   ctx = el.getContext("2d");
   onEndCallback = onEnd;
-  ensureArenaBackgroundAsset();
-  ensureEffectSpriteAssets();
-  ensureBonusSpriteAssets();
-  ensureNormalZombieSpriteAssets();
-  ensureAcidZombieSpriteAssets();
-  ensureNinjaZombieSpriteAssets();
-  ensureTankZombieSpriteAssets();
-  ensurePlayerSpriteAssets();
+  attachCanvasResize(el);
+  ensureGameplaySpriteAssets(0);
   attachInput();
-  if (!rafId) {
-    rafId = requestAnimationFrame(frame);
-  }
+  wakeFrameLoop();
 }
 
 export function unmountCanvas() {
@@ -861,54 +1009,57 @@ export function unmountCanvas() {
     cancelAnimationFrame(rafId);
     rafId = 0;
   }
+  if (lowPowerTimerId) {
+    window.clearTimeout(lowPowerTimerId);
+    lowPowerTimerId = 0;
+  }
   lastTs = 0;
+  lastLowPowerTs = 0;
   accumulator = 0;
+  detachCanvasResize();
   detachInput();
   resetInput();
   canvas = null;
   ctx = null;
   onEndCallback = null;
   state = createInitialState("menu");
-  hudData = snapshotHud(state);
+  syncUi(state);
 }
 
 export function startGame() {
-  ensureArenaBackgroundAsset();
-  ensureEffectSpriteAssets();
-  ensureBonusSpriteAssets();
-  ensureNormalZombieSpriteAssets();
-  ensureAcidZombieSpriteAssets();
-  ensureNinjaZombieSpriteAssets();
-  ensureTankZombieSpriteAssets();
-  ensurePlayerSpriteAssets();
+  ensureGameplaySpriteAssets(0);
   state = createInitialState("playing");
-  hudData = snapshotHud(state);
+  syncUi(state);
+  wakeFrameLoop();
 }
 
 export function pauseGame() {
   if (state.status === "playing") {
     state.status = "paused";
-    hudData = snapshotHud(state);
+    syncUi(state);
   }
 }
 
 export function resumeGame() {
   if (state.status === "paused") {
     state.status = "playing";
-    hudData = snapshotHud(state);
+    syncUi(state);
+    wakeFrameLoop();
   }
 }
 
 export function goToMenu() {
   state = createInitialState("menu");
-  hudData = snapshotHud(state);
+  syncUi(state);
 }
 
 function frame(timestamp: number) {
+  rafId = 0;
+
   if (document.hidden) {
     lastTs = timestamp;
     accumulator = 0;
-    rafId = requestAnimationFrame(frame);
+    scheduleFrame(LOW_POWER_FRAME_MS);
     return;
   }
 
@@ -917,8 +1068,29 @@ function frame(timestamp: number) {
   }
 
   const frameDt = Math.min((timestamp - lastTs) / 1000, 0.1);
-  accumulator += timestamp - lastTs;
+  const elapsedMs = timestamp - lastTs;
   lastTs = timestamp;
+
+  if (state.status !== "playing") {
+    const lowPowerDt = lastLowPowerTs
+      ? Math.min((timestamp - lastLowPowerTs) / 1000, 0.25)
+      : frameDt;
+    lastLowPowerTs = timestamp;
+
+    tick(lowPowerDt);
+    clearInputFrame();
+
+    if (ctx && canvas) {
+      ctx.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
+      renderFrame(ctx, state, lowPowerDt);
+    }
+
+    scheduleFrame(LOW_POWER_FRAME_MS);
+    return;
+  }
+
+  lastLowPowerTs = 0;
+  accumulator += elapsedMs;
 
   while (accumulator >= STEP_MS) {
     tick(STEP_MS / 1000);
@@ -927,20 +1099,11 @@ function frame(timestamp: number) {
   }
 
   if (ctx && canvas) {
-    const bounds = canvas.getBoundingClientRect();
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const nextW = Math.max(1, Math.round(bounds.width * dpr));
-    const nextH = Math.max(1, Math.round(bounds.height * dpr));
-    if (canvas.width !== nextW || canvas.height !== nextH) {
-      canvas.width = nextW;
-      canvas.height = nextH;
-    }
-
     ctx.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
     renderFrame(ctx, state, frameDt);
   }
 
-  rafId = requestAnimationFrame(frame);
+  scheduleFrame();
 }
 
 function tick(dt: number) {
@@ -956,20 +1119,25 @@ function tick(dt: number) {
 
   if (state.status !== "playing") {
     updateCosmetics(state, dt);
-    hudData = snapshotHud(state);
+    syncUi(state);
     return;
   }
 
   updateCosmetics(state, dt);
 
   state.time += dt;
+  ensureGameplaySpriteAssets(state.time);
+  loadingData = snapshotLoading(state);
+  if (loadingData.active) {
+    syncUi(state);
+    return;
+  }
   state.score = computeScore(state.time, state.kills);
 
   const player = state.player;
   player.stunTimer = Math.max(0, player.stunTimer - dt);
   player.shieldTimer = Math.max(0, player.shieldTimer - dt);
   player.speedBoostTimer = Math.max(0, player.speedBoostTimer - dt);
-  player.shotgunCooldown = Math.max(0, player.shotgunCooldown - dt);
   player.bazookaCooldown = Math.max(0, player.bazookaCooldown - dt);
   player.shootAnim = Math.max(0, player.shootAnim - dt);
   player.hitAnim = Math.max(0, player.hitAnim - dt);
@@ -1025,7 +1193,7 @@ function tick(dt: number) {
     finishRun();
   }
 
-  hudData = snapshotHud(state);
+  syncUi(state);
 }
 
 function updateCosmetics(current: GameState, dt: number) {
@@ -1072,7 +1240,7 @@ function updatePlayer(current: GameState, dt: number, insideAcid: boolean) {
     player.x += forward.x * player.baseSpeed * speedMultiplier * moveAxis * dt;
     player.y += forward.y * player.baseSpeed * speedMultiplier * moveAxis * dt;
     if (player.movingAnim) {
-      const cadence = player.currentWeapon === "bazooka" ? 5.4 : player.currentWeapon === "shotgun" ? 6.6 : 7.6;
+      const cadence = player.currentWeapon === "bazooka" ? 5.4 : player.currentWeapon === "flamethrower" ? 6.1 : 7.6;
       player.movePhase += dt * cadence * Math.max(0.55, Math.abs(moveAxis)) * (player.speedBoostTimer > 0 ? 1.3 : 1);
     }
     clampPlayer(player);
@@ -1143,25 +1311,23 @@ function updatePlayer(current: GameState, dt: number, insideAcid: boolean) {
     }
   }
 
-  if (player.currentWeapon === "shotgun") {
-    if (input.firePressed && player.shotgunCooldown <= 0) {
-      player.shotgunCharging = true;
-      player.shotgunChargeTime = 0;
-    }
-
-    if (player.shotgunCharging && input.fire) {
-      player.shotgunChargeTime += dt;
-    }
-
-    if (player.shotgunCharging && input.fireReleased) {
-      fireShotgun(current, player.shotgunChargeTime >= 1);
-      player.shotgunCharging = false;
-      player.shotgunChargeTime = 0;
-      player.shotgunCooldown = 1;
+  if (player.currentWeapon === "flamethrower") {
+    if (input.fire) {
+      player.flamethrowerStreamActive = true;
+      player.flamethrowerTickTimer -= dt;
+      while (player.flamethrowerTickTimer <= 0) {
+        spawnFlamethrowerBurst(current, player.angle);
+        triggerPlayerShootAnim(player, "flamethrower");
+        sfxFlamethrower();
+        player.flamethrowerTickTimer += FLAMETHROWER_INTERVAL;
+      }
+    } else {
+      player.flamethrowerStreamActive = false;
+      player.flamethrowerTickTimer = 0;
     }
   } else {
-    player.shotgunCharging = false;
-    player.shotgunChargeTime = 0;
+    player.flamethrowerStreamActive = false;
+    player.flamethrowerTickTimer = 0;
   }
 
   if (player.currentWeapon === "bazooka" && input.firePressed && player.bazookaCooldown <= 0 && player.bazookaPendingDelay <= 0) {
@@ -1427,6 +1593,8 @@ function updateEnemies(current: GameState, dt: number) {
 }
 
 function updateProjectiles(current: GameState, dt: number) {
+  const player = current.player;
+
   for (const projectile of current.projectiles) {
     if (!projectile.alive) continue;
 
@@ -1446,6 +1614,16 @@ function updateProjectiles(current: GameState, dt: number) {
     }
 
     if (projectile.type === "acid_spit") {
+      if (distance(projectile, player) <= projectile.radius + player.radius) {
+        projectile.alive = false;
+        applyPlayerHit(current, projectile.damage || 20, { shake: 0.35 });
+        spawnAcidPool(current, player.x, player.y);
+      }
+
+      if (!projectile.alive) {
+        continue;
+      }
+
       if (
         projectile.distance >= projectile.maxDistance ||
         distance(projectile, { x: projectile.targetX ?? projectile.x, y: projectile.targetY ?? projectile.y }) <= projectile.radius + 4
@@ -1471,6 +1649,25 @@ function updateProjectiles(current: GameState, dt: number) {
 
       if (projectile.distance >= projectile.maxDistance) {
         explodeRocket(current, projectile.x, projectile.y);
+        projectile.alive = false;
+      }
+    }
+
+    if (projectile.type === "flame") {
+      const direction = normalize({ x: projectile.vx, y: projectile.vy });
+      const hitEnemyIds = projectile.hitEnemyIds ?? (projectile.hitEnemyIds = []);
+
+      for (const enemy of current.enemies) {
+        if (!enemy.alive || enemy.isDying || hitEnemyIds.includes(enemy.id)) continue;
+        if (distance(projectile, enemy) <= projectile.radius + enemy.radius + 8) {
+          hitEnemyIds.push(enemy.id);
+          damageEnemy(current, enemy, projectile.damage);
+          enemy.x += direction.x * 14;
+          enemy.y += direction.y * 14;
+        }
+      }
+
+      if (projectile.distance >= projectile.maxDistance) {
         projectile.alive = false;
       }
     }
@@ -1569,36 +1766,27 @@ function fireBullet(current: GameState, angle: number, damage: number) {
   });
 }
 
-function fireShotgun(current: GameState, charged: boolean) {
+function spawnFlamethrowerBurst(current: GameState, angle: number) {
   const player = current.player;
   const dir = vectorFromAngle(player.angle);
-  const range = charged ? SHOTGUN_CHARGED_RANGE : SHOTGUN_NORMAL_RANGE;
-  const coneCos = Math.cos(SHOTGUN_CONE_HALF_ANGLE);
-  triggerPlayerShootAnim(player, "shotgun");
 
-  for (const enemy of current.enemies) {
-    if (!enemy.alive) continue;
-    const delta = subtract(enemy, player);
-    const deltaNorm = normalize(delta);
-    const alignment = dot(dir, deltaNorm);
-    const distanceToEnemy = length(delta);
-    if (distanceToEnemy <= range + enemy.radius && alignment >= coneCos) {
-      damageEnemy(current, enemy, 80);
-      const knock = normalize(delta);
-      enemy.x += knock.x * (charged ? 32 : 20);
-      enemy.y += knock.y * (charged ? 32 : 20);
-    }
-  }
+  current.projectiles.push({
+    id: nextId("flame"),
+    type: "flame",
+    x: player.x + dir.x * (player.radius + 18),
+    y: player.y + dir.y * (player.radius + 18),
+    vx: Math.cos(angle) * FLAMETHROWER_SPEED,
+    vy: Math.sin(angle) * FLAMETHROWER_SPEED,
+    radius: FLAMETHROWER_RADIUS,
+    damage: FLAMETHROWER_DAMAGE,
+    distance: 0,
+    maxDistance: FLAMETHROWER_RANGE,
+    hitEnemyIds: [],
+    alive: true,
+  });
 
-  if (charged) {
-    player.x -= dir.x * SHOTGUN_KNOCKBACK;
-    player.y -= dir.y * SHOTGUN_KNOCKBACK;
-    clampPlayer(player);
-  }
-
-  current.cameraShake = Math.max(current.cameraShake, charged ? 0.8 : 0.5);
-  spawnParticles(current, player.x + dir.x * 28, player.y + dir.y * 28, "#ffd7a6", charged ? 22 : 16, charged ? 4 : 3);
-  sfxShotgun();
+  current.cameraShake = Math.max(current.cameraShake, 0.22);
+  spawnParticles(current, player.x + dir.x * 30, player.y + dir.y * 30, "#ff9d42", 8, 1.8);
 }
 
 function spawnRocket(current: GameState, angle: number) {
@@ -1669,7 +1857,7 @@ function spawnAcidSpit(current: GameState, enemy: Enemy, target: Vec2) {
     vx: direction.x * ACID_SPIT_SPEED,
     vy: direction.y * ACID_SPIT_SPEED,
     radius: ACID_SPIT_RADIUS,
-    damage: 0,
+    damage: 20,
     distance: 0,
     maxDistance: distanceToTarget,
     targetX: target.x,
@@ -1974,7 +2162,7 @@ function finishRun() {
   };
   state.bannerText = "";
   state.bannerTimer = 0;
-  hudData = snapshotHud(state);
+  syncUi(state);
   sfxGameOver();
   onEndCallback?.(state.result);
 }
@@ -2256,7 +2444,9 @@ function getPlayerAnimation(
 
   if (player.shootAnim > 0) {
     const strip = playerWeaponStrips[weaponKey].shoot;
-    const useLoopingShoot = weaponKey === "rifle" && player.machineStreamActive;
+    const useLoopingShoot =
+      (weaponKey === "rifle" && player.machineStreamActive)
+      || (weaponKey === "flamethrower" && player.flamethrowerStreamActive);
     return {
       group: "weapon",
       key: weaponKey,
@@ -2347,10 +2537,26 @@ function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: 
   }
 
   if (projectile.type === "acid_spit") {
-    renderingContext.fillStyle = "#6cff9d";
-    renderingContext.beginPath();
-    renderingContext.arc(0, 0, projectile.radius, 0, Math.PI * 2);
-    renderingContext.fill();
+    const asset = effectImageAssets.acid_spit;
+    if (asset.loaded && asset.image) {
+      const angle = Math.atan2(projectile.vy, projectile.vx);
+      const size = ACID_SPIT_DRAW_SIZE * (0.92 + Math.sin(projectile.distance * 0.08) * 0.04);
+
+      renderingContext.save();
+      renderingContext.rotate(angle);
+      renderingContext.fillStyle = "rgba(177, 255, 68, 0.14)";
+      renderingContext.beginPath();
+      renderingContext.arc(0, 0, projectile.radius + 8, 0, Math.PI * 2);
+      renderingContext.fill();
+      renderingContext.imageSmoothingEnabled = true;
+      renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+      renderingContext.restore();
+    } else {
+      renderingContext.fillStyle = "#6cff9d";
+      renderingContext.beginPath();
+      renderingContext.arc(0, 0, projectile.radius, 0, Math.PI * 2);
+      renderingContext.fill();
+    }
   }
 
   if (projectile.type === "rocket") {
@@ -2371,6 +2577,40 @@ function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: 
     renderingContext.lineTo(-22, 6);
     renderingContext.closePath();
     renderingContext.fill();
+  }
+
+  if (projectile.type === "flame") {
+    if (flamethrowerFireStrip.loaded && flamethrowerFireStrip.image) {
+      const angle = Math.atan2(projectile.vy, projectile.vx) - Math.PI / 2;
+      const frame = Math.floor((projectile.distance / 24) % flamethrowerFireStrip.frames);
+      const size = FLAMETHROWER_STREAM_DRAW_SIZE * (0.92 + Math.sin(projectile.distance * 0.06) * 0.06);
+
+      renderingContext.save();
+      renderingContext.rotate(angle);
+      renderingContext.globalCompositeOperation = "screen";
+      renderingContext.fillStyle = "rgba(255, 145, 64, 0.18)";
+      renderingContext.beginPath();
+      renderingContext.arc(0, size * 0.12, projectile.radius + 14, 0, Math.PI * 2);
+      renderingContext.fill();
+      renderingContext.imageSmoothingEnabled = true;
+      renderingContext.drawImage(
+        flamethrowerFireStrip.image,
+        frame * flamethrowerFireStrip.width,
+        0,
+        flamethrowerFireStrip.width,
+        flamethrowerFireStrip.height,
+        -size / 2,
+        -size / 2,
+        size,
+        size,
+      );
+      renderingContext.restore();
+    } else {
+      renderingContext.fillStyle = "#ffb35f";
+      renderingContext.beginPath();
+      renderingContext.arc(0, 0, projectile.radius, 0, Math.PI * 2);
+      renderingContext.fill();
+    }
   }
 
   renderingContext.restore();
@@ -2397,6 +2637,11 @@ function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, tim
   }
 
   if (bonus.type === "airstrike" && drawAirstrikeBonus(renderingContext, bonus, time)) {
+    renderingContext.restore();
+    return;
+  }
+
+  if (bonus.type === "speed" && drawSpeedBonus(renderingContext, bonus, time)) {
     renderingContext.restore();
     return;
   }
@@ -2513,6 +2758,32 @@ function drawAirstrikeBonus(renderingContext: CanvasRenderingContext2D, bonus: B
   renderingContext.lineWidth = 2;
   renderingContext.beginPath();
   renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
+  renderingContext.stroke();
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  return true;
+}
+
+function drawSpeedBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
+  const asset = bonusImageAssets.speed;
+  if (!asset.loaded || !asset.image) {
+    return false;
+  }
+
+  const pulse = 1 + Math.sin(time * 5.6 + bonus.bobPhase) * 0.045;
+  const size = SPEED_BONUS_DRAW_SIZE * pulse;
+  const glowRadius = bonus.radius + 8 + Math.sin(time * 6.2 + bonus.bobPhase) * 2.6;
+
+  renderingContext.fillStyle = "rgba(98, 223, 255, 0.24)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.strokeStyle = "rgba(181, 245, 255, 0.46)";
+  renderingContext.lineWidth = 2;
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius + 2, 0, Math.PI * 2);
   renderingContext.stroke();
 
   renderingContext.imageSmoothingEnabled = true;
@@ -2660,16 +2931,16 @@ function enemySpawnIntervalForTime(time: number): [number, number] {
 }
 
 function weaponForTime(time: number): WeaponType {
-  if (time <= 30) return "pistol";
-  if (time <= 90) return "machine_gun";
-  if (time <= 120) return "shotgun";
-  return "bazooka";
+  if (time <= 60) return "pistol";
+  if (time <= 120) return "machine_gun";
+  if (time <= 180) return "bazooka";
+  return "flamethrower";
 }
 
 function weaponName(weapon: WeaponType) {
   if (weapon === "pistol") return "PISTOL";
   if (weapon === "machine_gun") return "MACHINE GUN";
-  if (weapon === "shotgun") return "SHOTGUN";
+  if (weapon === "flamethrower") return "FLAMETHROWER";
   return "BAZOOKA";
 }
 
@@ -2683,9 +2954,9 @@ function resetWeaponFlow(player: Player) {
   player.machineHoldTime = 0;
   player.machineStreamActive = false;
   player.machineStreamTimer = 0;
-  player.shotgunCharging = false;
-  player.shotgunChargeTime = 0;
   player.bazookaPendingDelay = 0;
+  player.flamethrowerStreamActive = false;
+  player.flamethrowerTickTimer = 0;
 }
 
 function cancelShootingFlow(player: Player) {
@@ -2694,8 +2965,8 @@ function cancelShootingFlow(player: Player) {
   player.machineHoldTime = 0;
   player.machineStreamActive = false;
   player.machineStreamTimer = 0;
-  player.shotgunCharging = false;
-  player.shotgunChargeTime = 0;
+  player.flamethrowerStreamActive = false;
+  player.flamethrowerTickTimer = 0;
 }
 
 function clampPlayer(player: Player) {
@@ -2795,6 +3066,12 @@ function loadZombieStripSet(strips: Record<string, ZombieStrip>) {
     image.decoding = "async";
     image.onload = () => {
       strip.loaded = true;
+      emitUi();
+    };
+    image.onerror = () => {
+      strip.loaded = true;
+      strip.image = null;
+      emitUi();
     };
     image.src = strip.path;
     strip.image = image;
@@ -2806,6 +3083,12 @@ function loadImageAsset(asset: ImageAsset) {
   image.decoding = "async";
   image.onload = () => {
     asset.loaded = true;
+    emitUi();
+  };
+  image.onerror = () => {
+    asset.loaded = true;
+    asset.image = null;
+    emitUi();
   };
   image.src = asset.path;
   asset.image = image;
@@ -2829,6 +3112,7 @@ function ensureEffectSpriteAssets() {
   for (const asset of Object.values(effectImageAssets)) {
     loadImageAsset(asset);
   }
+  loadZombieStripSet({ flamethrowerFireStrip });
 }
 
 function ensureBonusSpriteAssets() {
@@ -2878,16 +3162,46 @@ function ensureTankZombieSpriteAssets() {
   loadZombieStripSet(tankZombieStrips);
 }
 
-function ensurePlayerSpriteAssets() {
-  if (playerSpritesRequested || typeof Image === "undefined") {
+function ensurePlayerWeaponSpriteAssets(weapon: PlayerWeaponStripKey) {
+  if (playerWeaponSpritesRequested[weapon] || typeof Image === "undefined") {
     return;
   }
 
-  playerSpritesRequested = true;
-  for (const weaponStrips of Object.values(playerWeaponStrips)) {
-    loadZombieStripSet(weaponStrips);
+  playerWeaponSpritesRequested[weapon] = true;
+  loadZombieStripSet(playerWeaponStrips[weapon]);
+}
+
+function ensurePlayerSharedSpriteAssets() {
+  if (playerSharedSpritesRequested || typeof Image === "undefined") {
+    return;
   }
+
+  playerSharedSpritesRequested = true;
   loadZombieStripSet(playerSharedStrips);
+}
+
+function ensureGameplaySpriteAssets(time: number) {
+  ensureArenaBackgroundAsset();
+  ensureEffectSpriteAssets();
+  ensureBonusSpriteAssets();
+  ensureNormalZombieSpriteAssets();
+  ensureAcidZombieSpriteAssets();
+  ensurePlayerSharedSpriteAssets();
+  ensurePlayerWeaponSpriteAssets("pistol");
+
+  if (time >= 60 - ASSET_PRELOAD_LEAD_TIME) {
+    ensureNinjaZombieSpriteAssets();
+    ensurePlayerWeaponSpriteAssets("rifle");
+  }
+
+  if (time >= 120 - ASSET_PRELOAD_LEAD_TIME) {
+    ensureTankZombieSpriteAssets();
+    ensurePlayerWeaponSpriteAssets("bazooka");
+  }
+
+  if (time >= 180 - ASSET_PRELOAD_LEAD_TIME) {
+    ensurePlayerWeaponSpriteAssets("flamethrower");
+  }
 }
 
 function drawNormalZombieSprite(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
@@ -3100,8 +3414,9 @@ function drawTankZombieSprite(renderingContext: CanvasRenderingContext2D, enemy:
     return;
   }
 
-  const drawWidth = strip.width * TANK_ZOMBIE_DRAW_SCALE;
-  const drawHeight = strip.height * TANK_ZOMBIE_DRAW_SCALE;
+  const hitScaleCompensation = animation.name === "hit" ? 0.82 : 1;
+  const drawWidth = strip.width * TANK_ZOMBIE_DRAW_SCALE * hitScaleCompensation;
+  const drawHeight = strip.height * TANK_ZOMBIE_DRAW_SCALE * hitScaleCompensation;
   const rotation = (enemy.visualAngle ?? 0) - TANK_ZOMBIE_BASE_FACING;
   const corpseAlpha = enemy.isDying && (enemy.deathAnim ?? 0) <= 0
     ? clamp((enemy.corpseFade ?? 0) / 0.8, 0, 1)

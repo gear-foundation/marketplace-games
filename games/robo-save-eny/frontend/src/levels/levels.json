@@ -1,0 +1,1044 @@
+[
+  {
+    "id": 1,
+    "width": 14,
+    "height": 10,
+    "tiles": [
+      "##############",
+      "#........#...#",
+      "#............#",
+      "#....#.......#",
+      "#....#..#....#",
+      "#..#..#......#",
+      "#....#..#....#",
+      "#............#",
+      "#.#........#.#",
+      "##############"
+    ],
+    "objects": {
+      "robo": {
+        "x": 9,
+        "y": 3
+      },
+      "eny": {
+        "x": 11,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 4
+      },
+      "stones": [
+        {
+          "x": 4,
+          "y": 5
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 41,
+      "solutionPushes": 4
+    }
+  },
+  {
+    "id": 2,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "#......#.#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 4,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 4,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 18,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 3,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#........#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 6,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 6,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 19,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 4,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "##.......#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 5,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 5,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 17,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 5,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#.......##",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 5,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 5,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 18,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 6,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "#........#",
+      "#.#......#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 6,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 6,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 16,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 7,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#........#",
+      "#......#.#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 4,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 4,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 17,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 8,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "#.#......#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 7,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 7,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "easy",
+      "solutionSteps": 15,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 9,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#......#.#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 3,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 3,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 16,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 10,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#.....#..#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "#........#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 3,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 3,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 19,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 11,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#..#.....#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#........#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 6,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 6,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 19,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 12,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "#.....#..#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 4,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 4,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 18,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 13,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#..#.....#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 5,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 5,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 18,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 14,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#.#......#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "#........#",
+      "#......#.#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 5,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 5,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 17,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 15,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#......#.#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#........#",
+      "#.#......#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 4,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 4,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "medium",
+      "solutionSteps": 17,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 16,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#......#.#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "##.......#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 6,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 6,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "hard",
+      "solutionSteps": 16,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 17,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#.#......#",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#.......##",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 3,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 3,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "hard",
+      "solutionSteps": 16,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 18,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "##.......#",
+      "#.......##",
+      "#........#",
+      "#.#......#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 7,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 7,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "hard",
+      "solutionSteps": 15,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 19,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "##.......#",
+      "#........#",
+      "#......#.#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 6,
+        "y": 5
+      },
+      "eny": {
+        "x": 1,
+        "y": 2
+      },
+      "exit": {
+        "x": 8,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 6,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 8,
+          "y": 2,
+          "direction": "left"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "hard",
+      "solutionSteps": 19,
+      "solutionPushes": 2
+    }
+  },
+  {
+    "id": 20,
+    "width": 10,
+    "height": 8,
+    "tiles": [
+      "##########",
+      "#.....#..#",
+      "#........#",
+      "#........#",
+      "#.......##",
+      "##.....#.#",
+      "#........#",
+      "##########"
+    ],
+    "objects": {
+      "robo": {
+        "x": 4,
+        "y": 5
+      },
+      "eny": {
+        "x": 8,
+        "y": 2
+      },
+      "exit": {
+        "x": 1,
+        "y": 6
+      },
+      "stones": [
+        {
+          "x": 4,
+          "y": 4
+        }
+      ],
+      "lasers": [
+        {
+          "x": 1,
+          "y": 2,
+          "direction": "right"
+        }
+      ]
+    },
+    "rules": {
+      "goal": "save_eny_then_exit",
+      "stonesBlockLasers": true
+    },
+    "meta": {
+      "template": "stone_blocks_laser",
+      "difficulty": "hard",
+      "solutionSteps": 18,
+      "solutionPushes": 2
+    }
+  }
+]

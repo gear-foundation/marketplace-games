@@ -28,23 +28,22 @@ import {
   revokeVoucher,
   type VoucherResult,
 } from "../shared/voucher";
+import { ZombieChainPanelOffline } from "./ZombieChainPanelOffline";
+import type { PlayAccess } from "./playAccess";
+export type { PlayAccess } from "./playAccess";
 
 const VISIBLE_LEADERBOARD_LIMIT = 8;
 const CURRENT_PLAYER_NAME = "YOU";
-const VARA_PROGRAM_ID = import.meta.env.VITE_PROGRAM_ID || "";
-const VOUCHER_BACKEND_URL = (import.meta.env.VITE_VOUCHER_BACKEND_URL || "").replace(/\/+$/, "");
+const DEFAULT_PROGRAM_ID = "0x2f683b880bc03933678250cde86656bb0ddaac526bcfb3e6b5870027ade04a56";
+const DEFAULT_VOUCHER_BACKEND_URL = "https://arcade-vara-production.up.railway.app";
+const VARA_PROGRAM_ID = import.meta.env.VITE_PROGRAM_ID || DEFAULT_PROGRAM_ID;
+const VOUCHER_BACKEND_URL = (import.meta.env.VITE_VOUCHER_BACKEND_URL || DEFAULT_VOUCHER_BACKEND_URL).replace(/\/+$/, "");
 
 const placeholderEntries: LeaderboardEntry[] = [
   { name: "ASH", score: 12_840 },
   { name: "HIVE", score: 10_920 },
   { name: "DUSK", score: 8_500 },
 ];
-
-export type PlayAccess = {
-  canPlay: boolean;
-  title: string;
-  description: string;
-};
 
 type ZombieChainPanelProps = {
   chainEnabled: boolean;
@@ -70,68 +69,6 @@ export function ZombieChainPanel({
   }
 
   return <ZombieChainPanelOnline {...props} />;
-}
-
-function ZombieChainPanelOffline({
-  pendingRun,
-  onPlayAccessChange,
-  onSessionSubmitStateChange,
-}: Omit<ZombieChainPanelProps, "chainEnabled" | "gameSessionId"> & { gameSessionId: number }) {
-  useEffect(() => {
-    onPlayAccessChange?.({
-      canPlay: true,
-      title: "Local mode enabled",
-      description: "Wallet, contract, and voucher flows are disabled for now. Runs stay only in the browser session.",
-    });
-    onSessionSubmitStateChange?.(true);
-  }, [onPlayAccessChange, onSessionSubmitStateChange]);
-
-  return (
-    <section className="za-card za-chain-panel" aria-label="Local mode panel">
-      <div className="za-panel-head">
-        <div>
-          <p className="za-card-kicker">Offline Prototype</p>
-          <h2>Local Mode</h2>
-        </div>
-        <span className="za-chip">No blockchain</span>
-      </div>
-
-      <div className="za-connection-state">
-        <strong>Gameplay is fully unlocked</strong>
-        <p>
-          You can start, restart, and replay immediately. Scores are not sent on-chain until we enable wallet and contract mode again.
-        </p>
-      </div>
-
-      <section className="za-player-chain" aria-label="Local mode status">
-        <div>
-          <span>Wallet</span>
-          <strong>Disabled</strong>
-        </div>
-        <div>
-          <span>Leaderboard</span>
-          <strong>Local only</strong>
-        </div>
-      </section>
-
-      {pendingRun && (
-        <section className="za-submit-box" aria-label="Local score note">
-          <h3>Last run stays local</h3>
-          <div className="za-stat-row">
-            <span>Score</span>
-            <strong>{pendingRun.score.toLocaleString()}</strong>
-          </div>
-          <div className="za-stat-row">
-            <span>Survival</span>
-            <strong>{pendingRun.survivalSeconds}s</strong>
-          </div>
-          <p className="za-note">
-            When you want blockchain back, set `VITE_ENABLE_CHAIN=true` and point `VITE_PROGRAM_ID` at a deployed contract.
-          </p>
-        </section>
-      )}
-    </section>
-  );
 }
 
 function ZombieChainPanelOnline({
@@ -162,6 +99,12 @@ function ZombieChainPanelOnline({
   const voucherBackendUrl = useMemo(() => getConfiguredBackendUrl(VOUCHER_BACKEND_URL), []);
   const connectedAddress = account?.decodedAddress || account?.address || "";
   const isSubmittedForCurrentSession = pendingRun === null || submittedSessionId === gameSessionId;
+  const voucherStatus = useMemo(() => {
+    if (!voucherBackendUrl) return "Backend missing";
+    if (!programId) return "Program missing";
+    if (!connectedAddress) return "Wallet required";
+    return "Checking access";
+  }, [connectedAddress, programId, voucherBackendUrl]);
 
   const playAccess = useMemo<PlayAccess>(() => {
     if (!isAccountReady) {
@@ -176,7 +119,7 @@ function ZombieChainPanelOnline({
       return {
         canPlay: false,
         title: "Connect your wallet",
-        description: "Connect a Vara wallet to start surviving and send your best result to the on-chain leaderboard.",
+        description: "Connect a Vara wallet to enter the arena and submit your survival score on-chain with voucher support.",
       };
     }
 
@@ -207,7 +150,7 @@ function ZombieChainPanelOnline({
     return {
       canPlay: true,
       title: "Arena ready",
-      description: "Start a run. When you fall, the score will submit to Vara automatically.",
+      description: "Start a run. When you fall, the score submission prompt will open automatically.",
     };
   }, [api, chainStatusMessage, connectedAddress, isAccountReady, isApiReady, programId, sailsClient, walletConnected]);
 
@@ -299,9 +242,22 @@ function ZombieChainPanelOnline({
   }, [refreshChainState]);
 
   useEffect(() => {
-    if (!voucherBackendUrl || !connectedAddress || !programId) {
+    if (!voucherBackendUrl) {
+      setVoucherMessage("Voucher backend is not configured.");
       return;
     }
+
+    if (!programId) {
+      setVoucherMessage("Program ID is missing, so voucher access cannot be checked.");
+      return;
+    }
+
+    if (!connectedAddress) {
+      setVoucherMessage("Connect your wallet to check gas voucher access for this game.");
+      return;
+    }
+
+    setVoucherMessage("Checking voucher access...");
 
     let cancelled = false;
 
@@ -309,12 +265,15 @@ function ZombieChainPanelOnline({
       .then((state) => {
         if (cancelled) return;
         const summary = describeVoucher(state, programId);
-        if (summary) {
-          setVoucherMessage(summary);
-        }
+        setVoucherMessage(summary || "No active voucher yet. A voucher will be requested automatically on submit.");
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (cancelled) return;
+        setVoucherMessage(
+          isFetchFailure(error)
+            ? `Voucher backend is unreachable from this frontend.`
+            : `Voucher check failed: ${formatError(error)}`,
+        );
       });
 
     return () => {
@@ -468,6 +427,19 @@ function ZombieChainPanelOnline({
         <p>{playAccess.description}</p>
       </div>
 
+      <section className="za-voucher-box" aria-label="Gas voucher status">
+        <h3>Gas voucher</h3>
+        <div className="za-stat-row">
+          <span>Status</span>
+          <strong>{voucherStatus}</strong>
+        </div>
+        <div className="za-stat-row">
+          <span>Backend</span>
+          <strong>{voucherBackendUrl ? "Connected" : "Missing"}</strong>
+        </div>
+        <p className="za-note">{voucherMessage}</p>
+      </section>
+
       {pendingRun && (
         <section className="za-submit-box" aria-label="Score submission">
           <h3>Last run</h3>
@@ -496,7 +468,6 @@ function ZombieChainPanelOnline({
         </section>
       )}
 
-      {voucherMessage && <p className="za-note">{voucherMessage}</p>}
       {chainStatusMessage && <p className="za-note za-note--error">{chainStatusMessage}</p>}
 
       <section className="za-player-chain" aria-label="Player chain stats">

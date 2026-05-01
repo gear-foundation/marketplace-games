@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import type { GameEndPayload, HudData } from "../game/types";
+import type { GameEndPayload, HudData, LoadingData } from "../game/types";
 import { CANVAS_H, CANVAS_W, WEAPON_LABELS } from "../game/constants";
 import {
   getHudData,
+  getLoadingData,
   goToMenu,
   mountCanvas,
   pauseGame,
   resumeGame,
   startGame,
+  subscribeUi,
   unmountCanvas,
 } from "../game/engine";
-import type { PlayAccess } from "./ZombieChainPanel";
+import type { PlayAccess } from "./playAccess";
 
 type GameCanvasProps = {
   playAccess: PlayAccess;
@@ -30,6 +32,7 @@ export function GameCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onRunEndRef = useRef(onRunEnd);
   const [hud, setHud] = useState<HudData>(getHudData());
+  const [loading, setLoading] = useState<LoadingData>(getLoadingData());
 
   onRunEndRef.current = onRunEnd;
 
@@ -46,13 +49,10 @@ export function GameCanvas({
   }, []);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
+    return subscribeUi(() => {
       setHud({ ...getHudData() });
-    }, 100);
-
-    return () => {
-      window.clearInterval(id);
-    };
+      setLoading({ ...getLoadingData() });
+    });
   }, []);
 
   function tryStart() {
@@ -111,6 +111,18 @@ export function GameCanvas({
         {hud.banner && hud.bannerTimer > 0 && (
           <div className="za-banner" role="status" aria-live="polite">
             {hud.banner}
+          </div>
+        )}
+
+        {loading.active && (
+          <div className="za-loader" role="status" aria-live="polite">
+            <div className="za-loader__card">
+              <div className="za-loader__spinner" aria-hidden="true" />
+              <strong>{loading.label}</strong>
+              <div className="za-loader__bar">
+                <span style={{ width: `${Math.round(loading.progress * 100)}%` }} />
+              </div>
+            </div>
           </div>
         )}
 
