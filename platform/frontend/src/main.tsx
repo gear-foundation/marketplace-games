@@ -64,6 +64,7 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
     case "2048":            return "/2048image.webp";
     case "deep-sea-feast":  return "/deep_sea_feast.webp";
     case "robo-miner":      return "/robo_miner_back.jpg";
+    case "zombie-apocalypse-survival": return "/back_zombie.webp";
     default:                return fallback || "";
   }
 }
@@ -75,6 +76,7 @@ function getGameCategories(slug: string, tags: string[]): CategoryId[] {
     case "lumberjack":     return ["arcade"];
     case "robo-miner":     return ["arcade"];
     case "nebula-blaster": return ["shooter", "arcade"];
+    case "zombie-apocalypse-survival": return ["shooter", "arcade"];
     default: {
       const tl = tags.map(t => t.toLowerCase());
       const cats: CategoryId[] = [];
@@ -154,15 +156,18 @@ const FALLBACK_GAMES: GameCard[] = [
     image: "/robo_miner_back.jpg",
     categories: ["arcade"],
   },
-];
-
-const SOON_GAMES: GameCard[] = [
   {
     id: "zombie-apocalypse-survival",
     title: "Zombie Apocalypse Survival",
-    description: "Hold the line through escalating zombie waves, upgrade your run, and prepare for on-chain survival records.",
-    status: "soon", image: "/back_zombie.webp", categories: ["battle", "arcade"],
+    description: "Hold the line through escalating zombie waves, upgrade your run, and submit your best survival score on-chain.",
+    url: "https://zombie-apocalypse-survival-vara.up.railway.app/",
+    status: "live",
+    image: "/back_zombie.webp",
+    categories: ["shooter", "arcade"],
   },
+];
+
+const SOON_GAMES: GameCard[] = [
   {
     id: "chain-battles",
     title: "Chain Battles",

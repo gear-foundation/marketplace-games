@@ -7,6 +7,9 @@ const ZOMBIE_APOCALYPSE_SURVIVAL_DESCRIPTION =
   'A top-down survival shooter where you outlast waves of zombies and submit your best run on-chain.';
 const ZOMBIE_APOCALYPSE_SURVIVAL_CONTRACT =
   '0x2f683b880bc03933678250cde86656bb0ddaac526bcfb3e6b5870027ade04a56';
+const ZOMBIE_APOCALYPSE_SURVIVAL_FRONTEND_URL =
+  'https://zombie-apocalypse-survival-vara.up.railway.app/';
+const ZOMBIE_APOCALYPSE_SURVIVAL_IMAGE_URL = '/back_zombie.webp';
 const ZOMBIE_APOCALYPSE_SURVIVAL_TAGS = JSON.stringify(['Shooter', 'Leaderboard', 'Gas voucher']);
 const DEFAULT_DAILY_CAP = 100;
 const DEFAULT_WEIGHT = 1;
@@ -59,14 +62,16 @@ export class EnableZombieApocalypseSurvivalGasless20260501120000 implements Migr
           "status",
           "sort_order"
         )
-        VALUES ($1, $2, $3, NULL, $4, NULL, $5::jsonb, 'hidden', 70)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, 'live', 70)
         ON CONFLICT ("slug")
         DO UPDATE SET
           "title" = EXCLUDED."title",
           "description" = EXCLUDED."description",
+          "frontend_url" = EXCLUDED."frontend_url",
           "contract_address" = EXCLUDED."contract_address",
+          "image_url" = EXCLUDED."image_url",
           "tags" = EXCLUDED."tags",
-          "status" = 'hidden',
+          "status" = 'live',
           "sort_order" = 70,
           "updated_at" = CURRENT_TIMESTAMP
       `,
@@ -74,7 +79,9 @@ export class EnableZombieApocalypseSurvivalGasless20260501120000 implements Migr
         ZOMBIE_APOCALYPSE_SURVIVAL_SLUG,
         ZOMBIE_APOCALYPSE_SURVIVAL_TITLE,
         ZOMBIE_APOCALYPSE_SURVIVAL_DESCRIPTION,
+        ZOMBIE_APOCALYPSE_SURVIVAL_FRONTEND_URL,
         ZOMBIE_APOCALYPSE_SURVIVAL_CONTRACT,
+        ZOMBIE_APOCALYPSE_SURVIVAL_IMAGE_URL,
         ZOMBIE_APOCALYPSE_SURVIVAL_TAGS,
       ],
     );

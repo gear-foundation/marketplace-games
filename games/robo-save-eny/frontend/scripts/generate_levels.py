@@ -60,7 +60,7 @@ def canonical_stones(stones: Iterable[Position]) -> tuple[Position, ...]:
     return tuple(sorted(stones))
 
 
-def solve(level: dict, allow_pushes: bool = True, max_states: int = 200_000) -> dict:
+def solve(level: dict, allow_pushes: bool = True, max_states: int = 1_000_000) -> dict:
     robo = (level["objects"]["robo"]["x"], level["objects"]["robo"]["y"])
     eny = (level["objects"]["eny"]["x"], level["objects"]["eny"]["y"])
     exit_pos = (level["objects"]["exit"]["x"], level["objects"]["exit"]["y"])
