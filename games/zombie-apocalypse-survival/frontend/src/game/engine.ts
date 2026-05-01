@@ -270,6 +270,7 @@ const FLAMETHROWER_STREAM_DRAW_SIZE = 92;
 const FLAMETHROWER_STREAM_FRAME_W = 320;
 const FLAMETHROWER_STREAM_FRAME_H = 320;
 const IMAGE_LOAD_RETRY_DELAYS_MS = [350, 1_200, 3_000] as const;
+const PUBLIC_ASSET_VERSION = "20260501-art-crop-v2";
 
 type ZombieStripName = "idle" | "walk" | "attack" | "hit" | "death";
 type ZombieStrip = {
@@ -2724,17 +2725,6 @@ function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus:
 
   const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
   const size = SMALL_MEDKIT_DRAW_SIZE * pulse;
-  const glowRadius = bonus.radius + 6 + Math.sin(time * 4 + bonus.bobPhase) * 2;
-
-  renderingContext.fillStyle = "rgba(255, 110, 96, 0.18)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
-  renderingContext.fill();
-
-  renderingContext.fillStyle = "rgba(255, 255, 255, 0.16)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, bonus.radius + 1.5, 0, Math.PI * 2);
-  renderingContext.fill();
 
   drawImageAssetCentered(renderingContext, asset, size);
   return true;
@@ -2766,17 +2756,6 @@ function drawBigMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: B
 
   const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
   const size = BIG_MEDKIT_DRAW_SIZE * pulse;
-  const glowRadius = bonus.radius + 8 + Math.sin(time * 3.7 + bonus.bobPhase) * 2;
-
-  renderingContext.fillStyle = "rgba(255, 156, 102, 0.22)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
-  renderingContext.fill();
-
-  renderingContext.fillStyle = "rgba(255, 255, 255, 0.18)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, bonus.radius + 2.5, 0, Math.PI * 2);
-  renderingContext.fill();
 
   drawImageAssetCentered(renderingContext, asset, size);
   return true;
@@ -2790,18 +2769,6 @@ function drawShieldBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonu
 
   const pulse = 1 + Math.sin(time * 4.2 + bonus.bobPhase) * 0.04;
   const size = SHIELD_BONUS_DRAW_SIZE * pulse;
-  const glowRadius = bonus.radius + 8 + Math.sin(time * 4.8 + bonus.bobPhase) * 2.4;
-
-  renderingContext.fillStyle = "rgba(88, 218, 255, 0.2)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
-  renderingContext.fill();
-
-  renderingContext.strokeStyle = "rgba(154, 241, 255, 0.42)";
-  renderingContext.lineWidth = 2;
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
-  renderingContext.stroke();
 
   drawImageAssetCentered(renderingContext, asset, size);
   return true;
@@ -2815,18 +2782,6 @@ function drawAirstrikeBonus(renderingContext: CanvasRenderingContext2D, bonus: B
 
   const pulse = 1 + Math.sin(time * 4 + bonus.bobPhase) * 0.045;
   const size = AIRSTRIKE_BONUS_DRAW_SIZE * pulse;
-  const glowRadius = bonus.radius + 9 + Math.sin(time * 5.1 + bonus.bobPhase) * 2.8;
-
-  renderingContext.fillStyle = "rgba(255, 161, 64, 0.24)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
-  renderingContext.fill();
-
-  renderingContext.strokeStyle = "rgba(255, 225, 132, 0.46)";
-  renderingContext.lineWidth = 2;
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
-  renderingContext.stroke();
 
   drawImageAssetCentered(renderingContext, asset, size);
   return true;
@@ -2840,18 +2795,6 @@ function drawSpeedBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus
 
   const pulse = 1 + Math.sin(time * 5.6 + bonus.bobPhase) * 0.045;
   const size = SPEED_BONUS_DRAW_SIZE * pulse;
-  const glowRadius = bonus.radius + 8 + Math.sin(time * 6.2 + bonus.bobPhase) * 2.6;
-
-  renderingContext.fillStyle = "rgba(98, 223, 255, 0.24)";
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
-  renderingContext.fill();
-
-  renderingContext.strokeStyle = "rgba(181, 245, 255, 0.46)";
-  renderingContext.lineWidth = 2;
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, glowRadius + 2, 0, Math.PI * 2);
-  renderingContext.stroke();
 
   drawImageAssetCentered(renderingContext, asset, size);
   return true;
@@ -2868,15 +2811,6 @@ function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool
     renderingContext.save();
     renderingContext.globalAlpha *= fade;
     renderingContext.translate(pool.x, pool.y);
-
-    const glow = renderingContext.createRadialGradient(0, 0, 8, 0, 0, pool.radius * 1.08);
-    glow.addColorStop(0, "rgba(198, 255, 74, 0.22)");
-    glow.addColorStop(1, "rgba(28, 86, 29, 0)");
-    renderingContext.fillStyle = glow;
-    renderingContext.beginPath();
-    renderingContext.arc(0, 0, pool.radius * 1.08, 0, Math.PI * 2);
-    renderingContext.fill();
-
     drawImageAssetCentered(renderingContext, asset, size);
     renderingContext.restore();
     return;
@@ -3161,14 +3095,19 @@ function resolveAssetUrl(path: string) {
     return path;
   }
 
+  const isPublicAsset = path.startsWith("/assets/");
   const baseUrl = import.meta.env.BASE_URL || "/";
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+  const resolvedPath = normalizedBase && normalizedBase !== "/" && isPublicAsset
+    ? `${normalizedBase}${path}`
+    : path;
 
-  if (normalizedBase && normalizedBase !== "/" && path.startsWith("/assets/")) {
-    return `${normalizedBase}${path}`;
+  if (isPublicAsset) {
+    const separator = resolvedPath.includes("?") ? "&" : "?";
+    return `${resolvedPath}${separator}v=${PUBLIC_ASSET_VERSION}`;
   }
 
-  return path;
+  return resolvedPath;
 }
 
 function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 0) {

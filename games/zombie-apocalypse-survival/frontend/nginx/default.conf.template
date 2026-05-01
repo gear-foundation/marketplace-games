@@ -10,6 +10,11 @@ server {
     try_files $uri $uri/ /index.html;
   }
 
+  location ~* ^/assets/.+\.(webp|png|jpe?g|gif|svg)$ {
+    try_files $uri =404;
+    add_header Cache-Control "public, max-age=300";
+  }
+
   location /assets/ {
     try_files $uri =404;
     add_header Cache-Control "public, max-age=31536000, immutable";
