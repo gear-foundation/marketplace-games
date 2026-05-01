@@ -1,5 +1,9 @@
 import { CANVAS_H, CANVAS_W } from "./constants";
 import { attachInput, clearInputFrame, detachInput, getInput, resetInput } from "./input";
+import smallMedkitUrl from "../assets/runtime/bonuses/small-medkit.webp";
+import bigMedkitUrl from "../assets/runtime/bonuses/big-medkit.webp";
+import acidPoolUrl from "../assets/runtime/effects/acid-pool.webp";
+import acidSpitUrl from "../assets/runtime/effects/acid-spit.webp";
 import {
   sfxAcid,
   sfxExplosion,
@@ -703,12 +707,12 @@ const bonusImageAssets: {
   speed: ImageAsset;
 } = {
   small_medkit: {
-    path: "/assets/bonuses/small-medkit.webp",
+    path: smallMedkitUrl,
     image: null,
     loaded: false,
   },
   big_medkit: {
-    path: "/assets/bonuses/big-medkit.webp",
+    path: bigMedkitUrl,
     image: null,
     loaded: false,
   },
@@ -731,12 +735,12 @@ const bonusImageAssets: {
 
 const effectImageAssets: { acid_pool: ImageAsset; acid_spit: ImageAsset } = {
   acid_pool: {
-    path: "/assets/effects/acid-pool.webp",
+    path: acidPoolUrl,
     image: null,
     loaded: false,
   },
   acid_spit: {
-    path: "/assets/effects/acid-spit.webp",
+    path: acidSpitUrl,
     image: null,
     loaded: false,
   },
@@ -2656,7 +2660,25 @@ function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, tim
 function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
   const asset = bonusImageAssets.small_medkit;
   if (!asset.loaded || !asset.image) {
-    return false;
+    const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
+    const size = SMALL_MEDKIT_DRAW_SIZE * pulse;
+
+    renderingContext.fillStyle = "rgba(255, 110, 96, 0.18)";
+    renderingContext.beginPath();
+    renderingContext.arc(0, 0, bonus.radius + 7, 0, Math.PI * 2);
+    renderingContext.fill();
+
+    renderingContext.fillStyle = "#f4f0e7";
+    renderingContext.strokeStyle = "rgba(22, 18, 18, 0.9)";
+    renderingContext.lineWidth = 2.2;
+    roundedRectPath(renderingContext, -size * 0.42, -size * 0.33, size * 0.84, size * 0.66, size * 0.14);
+    renderingContext.fill();
+    renderingContext.stroke();
+
+    renderingContext.fillStyle = "#e4433d";
+    renderingContext.fillRect(-size * 0.09, -size * 0.2, size * 0.18, size * 0.4);
+    renderingContext.fillRect(-size * 0.2, -size * 0.09, size * 0.4, size * 0.18);
+    return true;
   }
 
   const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
@@ -2681,7 +2703,25 @@ function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus:
 function drawBigMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
   const asset = bonusImageAssets.big_medkit;
   if (!asset.loaded || !asset.image) {
-    return false;
+    const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
+    const size = BIG_MEDKIT_DRAW_SIZE * pulse;
+
+    renderingContext.fillStyle = "rgba(255, 156, 102, 0.22)";
+    renderingContext.beginPath();
+    renderingContext.arc(0, 0, bonus.radius + 9, 0, Math.PI * 2);
+    renderingContext.fill();
+
+    renderingContext.fillStyle = "#f6f2ea";
+    renderingContext.strokeStyle = "rgba(24, 20, 20, 0.92)";
+    renderingContext.lineWidth = 2.4;
+    roundedRectPath(renderingContext, -size * 0.46, -size * 0.35, size * 0.92, size * 0.7, size * 0.14);
+    renderingContext.fill();
+    renderingContext.stroke();
+
+    renderingContext.fillStyle = "#e4433d";
+    renderingContext.fillRect(-size * 0.11, -size * 0.24, size * 0.22, size * 0.48);
+    renderingContext.fillRect(-size * 0.24, -size * 0.11, size * 0.48, size * 0.22);
+    return true;
   }
 
   const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
@@ -2807,13 +2847,22 @@ function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool
     return;
   }
 
-  const gradient = renderingContext.createRadialGradient(pool.x, pool.y, 6, pool.x, pool.y, pool.radius);
-  gradient.addColorStop(0, "rgba(121, 255, 138, 0.55)");
-  gradient.addColorStop(1, "rgba(28, 86, 29, 0.12)");
+  const gradient = renderingContext.createRadialGradient(pool.x, pool.y, 6, pool.x, pool.y, pool.radius * 1.05);
+  gradient.addColorStop(0, "rgba(208, 255, 92, 0.82)");
+  gradient.addColorStop(0.55, "rgba(116, 255, 72, 0.5)");
+  gradient.addColorStop(1, "rgba(20, 92, 32, 0.18)");
+  renderingContext.globalAlpha = fade;
   renderingContext.fillStyle = gradient;
   renderingContext.beginPath();
   renderingContext.arc(pool.x, pool.y, pool.radius, 0, Math.PI * 2);
   renderingContext.fill();
+
+  renderingContext.strokeStyle = "rgba(179, 255, 79, 0.72)";
+  renderingContext.lineWidth = 2;
+  renderingContext.beginPath();
+  renderingContext.arc(pool.x, pool.y, pool.radius * 0.92, 0, Math.PI * 2);
+  renderingContext.stroke();
+  renderingContext.globalAlpha = 1;
 }
 
 function drawEnemyHealthBar(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
@@ -3050,6 +3099,28 @@ function approachAngle(current: number, target: number, maxStep: number) {
   return current + Math.sign(delta) * maxStep;
 }
 
+function roundedRectPath(
+  renderingContext: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  renderingContext.beginPath();
+  renderingContext.moveTo(x + r, y);
+  renderingContext.lineTo(x + width - r, y);
+  renderingContext.quadraticCurveTo(x + width, y, x + width, y + r);
+  renderingContext.lineTo(x + width, y + height - r);
+  renderingContext.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  renderingContext.lineTo(x + r, y + height);
+  renderingContext.quadraticCurveTo(x, y + height, x, y + height - r);
+  renderingContext.lineTo(x, y + r);
+  renderingContext.quadraticCurveTo(x, y, x + r, y);
+  renderingContext.closePath();
+}
+
 function loadZombieStripSet(strips: Record<string, ZombieStrip>) {
   for (const strip of Object.values(strips)) {
     const image = new Image();
@@ -3078,6 +3149,7 @@ function loadImageAsset(asset: ImageAsset) {
   image.onerror = () => {
     asset.loaded = true;
     asset.image = null;
+    console.warn(`[Zombie Apocalypse Survival] Failed to load asset: ${asset.path}`);
     emitUi();
   };
   image.src = asset.path;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { stoneIndexAt } from "../game/collision";
 import { createInitialState } from "../game/levelLoader";
-import { getLaserCellSet } from "../game/lasers";
+import { getLaserCellDirectionMap } from "../game/lasers";
 import { movePlayer } from "../game/movement";
 import { positionKey, samePosition } from "../game/position";
 import type { Direction, GameState, Level, LevelCompletion } from "../game/types";
@@ -68,7 +68,7 @@ export function GameScreen({
     onBack,
   });
 
-  const laserCells = useMemo(() => getLaserCellSet(level, state.stones), [level, state.stones]);
+  const laserCellsByKey = useMemo(() => getLaserCellDirectionMap(level, state.stones), [level, state.stones]);
   const laserByKey = useMemo(() => new Map(level.objects.lasers.map((laser) => [positionKey(laser), laser])), [level]);
   const cellSize = `minmax(28px, 1fr)`;
 
@@ -100,7 +100,8 @@ export function GameScreen({
               const key = positionKey(position);
               const stoneIndex = stoneIndexAt(state.stones, position);
               const laser = laserByKey.get(key);
-              const hasLaser = laserCells.has(key);
+              const laserDirections = laserCellsByKey.get(key) ?? [];
+              const hasLaser = laserDirections.length > 0;
               const hasRobo = samePosition(state.robo, position);
               const hasEny = samePosition(state.eny, position) && !state.hasEny;
               const hasExit = samePosition(state.exit, position);
@@ -119,7 +120,9 @@ export function GameScreen({
                     .join(" ")}
                   key={key}
                 >
-                  {hasLaser ? <span className="laser-beam" /> : null}
+                  {laserDirections.map((direction) => (
+                    <span className={`laser-beam laser-beam--${direction}`} key={direction} />
+                  ))}
                   {hasExit ? <span className="exit-portal">X</span> : null}
                   {laser ? <span className="laser-gun">{LASER_SYMBOL[laser.direction]}</span> : null}
                   {stoneIndex !== -1 ? <span className="stone-block">S</span> : null}
