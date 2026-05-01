@@ -271,6 +271,14 @@ const FLAMETHROWER_STREAM_FRAME_W = 320;
 const FLAMETHROWER_STREAM_FRAME_H = 320;
 const IMAGE_LOAD_RETRY_DELAYS_MS = [350, 1_200, 3_000] as const;
 const PUBLIC_ASSET_VERSION = "20260501-art-crop-v2";
+const ASSET_DEBUG_QUERY_PARAM = "debugAssets";
+const ASSET_DEBUG_STORAGE_KEY = "zombieDebugAssets";
+const ASSET_DEBUG_LOG_INTERVAL_MS = 750;
+const ASSET_DEBUG_TARGET_PATHS = [
+  "/assets/bonuses/small-medkit.webp",
+  "/assets/bonuses/big-medkit.webp",
+  "/assets/effects/acid-pool.webp",
+] as const;
 
 type ZombieStripName = "idle" | "walk" | "attack" | "hit" | "death";
 type ZombieStrip = {
@@ -801,6 +809,122 @@ let bonusSpritesRequested = false;
 let effectSpritesRequested = false;
 let arenaBackgroundRequested = false;
 const uiSubscribers = new Set<() => void>();
+const assetDebugLastLogAt = new Map<string, number>();
+let assetDebugEnabled: boolean | null = null;
+
+function isTruthyDebugFlag(value: string | null) {
+  if (value === null) return false;
+  return !["", "0", "false", "off", "no"].includes(value.toLowerCase());
+}
+
+function isAssetDebugEnabled() {
+  if (assetDebugEnabled !== null) {
+    return assetDebugEnabled;
+  }
+
+  assetDebugEnabled = false;
+  if (typeof window === "undefined") {
+    return assetDebugEnabled;
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const queryFlag = params.has(ASSET_DEBUG_QUERY_PARAM) ? params.get(ASSET_DEBUG_QUERY_PARAM) || "1" : null;
+    const storageFlag = window.localStorage.getItem(ASSET_DEBUG_STORAGE_KEY);
+    assetDebugEnabled = isTruthyDebugFlag(queryFlag) || isTruthyDebugFlag(storageFlag);
+  } catch {
+    assetDebugEnabled = false;
+  }
+
+  if (assetDebugEnabled) {
+    console.info("[ZAS asset-debug] enabled", {
+      query: `?${ASSET_DEBUG_QUERY_PARAM}=1`,
+      localStorage: ASSET_DEBUG_STORAGE_KEY,
+      trackedPaths: ASSET_DEBUG_TARGET_PATHS,
+    });
+  }
+
+  return assetDebugEnabled;
+}
+
+function isTrackedDebugAssetPath(path: string) {
+  return ASSET_DEBUG_TARGET_PATHS.some((targetPath) => path.includes(targetPath));
+}
+
+function debugAssetName(path: string) {
+  if (path.includes("/small-medkit.")) return "small_medkit";
+  if (path.includes("/big-medkit.")) return "big_medkit";
+  if (path.includes("/acid-pool.")) return "acid_pool";
+  return path;
+}
+
+function debugAssetSnapshot(asset: LoadableImageAsset) {
+  const image = asset.image;
+
+  return {
+    name: debugAssetName(asset.path),
+    path: asset.path,
+    loaded: asset.loaded,
+    failed: asset.failed ?? false,
+    hasImage: image !== null,
+    complete: image?.complete ?? false,
+    naturalWidth: image?.naturalWidth ?? 0,
+    naturalHeight: image?.naturalHeight ?? 0,
+    source: "source" in asset ? asset.source ?? null : null,
+  };
+}
+
+function logAssetDebug(
+  key: string,
+  message: string,
+  payload: Record<string, unknown>,
+  level: "info" | "warn" = "info",
+  throttleMs = ASSET_DEBUG_LOG_INTERVAL_MS,
+) {
+  if (!isAssetDebugEnabled()) {
+    return;
+  }
+
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const lastLogAt = assetDebugLastLogAt.get(key) ?? -Infinity;
+  if (throttleMs > 0 && now - lastLogAt < throttleMs) {
+    return;
+  }
+
+  assetDebugLastLogAt.set(key, now);
+  console[level](`[ZAS asset-debug] ${message}`, payload);
+}
+
+function logTrackedAssetLoadDebug(
+  asset: LoadableImageAsset,
+  status: "request" | "retry" | "success" | "failure",
+  payload: Record<string, unknown>,
+) {
+  if (!isTrackedDebugAssetPath(asset.path)) {
+    return;
+  }
+
+  const level = status === "failure" ? "warn" : "info";
+  logAssetDebug(`load:${asset.path}:${status}:${payload.attempt ?? ""}`, `load ${status}`, {
+    asset: debugAssetSnapshot(asset),
+    ...payload,
+  }, level, 0);
+}
+
+function logAssetRenderDebug(
+  name: "small_medkit" | "big_medkit" | "acid_pool",
+  status: "draw:webp" | "skip:asset-pending" | "skip:asset-failed",
+  asset: ImageAsset,
+  payload: Record<string, unknown>,
+) {
+  logAssetDebug(`render:${name}:${payload.id ?? "unknown"}:${status}`, "render", {
+    name,
+    status,
+    drawn: status === "draw:webp" ? "webp asset" : "nothing",
+    asset: debugAssetSnapshot(asset),
+    ...payload,
+  }, status === "skip:asset-failed" ? "warn" : "info");
+}
 
 function nextId(prefix: string) {
   idCounter += 1;
@@ -2695,82 +2819,58 @@ function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, tim
     return;
   }
 
-  renderingContext.fillStyle = bonusColor(bonus.type);
-  renderingContext.strokeStyle = "rgba(255, 255, 255, 0.5)";
-  renderingContext.lineWidth = 2;
-
-  renderingContext.beginPath();
-  renderingContext.arc(0, 0, bonus.radius, 0, Math.PI * 2);
-  renderingContext.fill();
-  renderingContext.stroke();
-
-  renderingContext.fillStyle = "#112211";
-  renderingContext.font = "700 18px 'IBM Plex Sans', sans-serif";
-  renderingContext.textAlign = "center";
-  renderingContext.textBaseline = "middle";
-  renderingContext.fillText(bonusGlyph(bonus.type), 0, 1);
   renderingContext.restore();
 }
 
 function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
   const asset = bonusImageAssets.small_medkit;
   if (!asset.loaded || !asset.image) {
-    const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
-    const size = SMALL_MEDKIT_DRAW_SIZE * pulse;
-
-    renderingContext.fillStyle = "rgba(255, 110, 96, 0.18)";
-    renderingContext.beginPath();
-    renderingContext.arc(0, 0, bonus.radius + 7, 0, Math.PI * 2);
-    renderingContext.fill();
-
-    renderingContext.fillStyle = "#f4f0e7";
-    renderingContext.strokeStyle = "rgba(22, 18, 18, 0.9)";
-    renderingContext.lineWidth = 2.2;
-    roundedRectPath(renderingContext, -size * 0.42, -size * 0.33, size * 0.84, size * 0.66, size * 0.14);
-    renderingContext.fill();
-    renderingContext.stroke();
-
-    renderingContext.fillStyle = "#e4433d";
-    renderingContext.fillRect(-size * 0.09, -size * 0.2, size * 0.18, size * 0.4);
-    renderingContext.fillRect(-size * 0.2, -size * 0.09, size * 0.4, size * 0.18);
-    return true;
+    logAssetRenderDebug("small_medkit", asset.failed ? "skip:asset-failed" : "skip:asset-pending", asset, {
+      id: bonus.id,
+      type: bonus.type,
+      x: bonus.x,
+      y: bonus.y,
+    });
+    return false;
   }
 
   const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
   const size = SMALL_MEDKIT_DRAW_SIZE * pulse;
 
   drawImageAssetCentered(renderingContext, asset, size);
+  logAssetRenderDebug("small_medkit", "draw:webp", asset, {
+    id: bonus.id,
+    type: bonus.type,
+    x: bonus.x,
+    y: bonus.y,
+    size,
+  });
   return true;
 }
 
 function drawBigMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
   const asset = bonusImageAssets.big_medkit;
   if (!asset.loaded || !asset.image) {
-    const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
-    const size = BIG_MEDKIT_DRAW_SIZE * pulse;
-
-    renderingContext.fillStyle = "rgba(255, 156, 102, 0.22)";
-    renderingContext.beginPath();
-    renderingContext.arc(0, 0, bonus.radius + 9, 0, Math.PI * 2);
-    renderingContext.fill();
-
-    renderingContext.fillStyle = "#f6f2ea";
-    renderingContext.strokeStyle = "rgba(24, 20, 20, 0.92)";
-    renderingContext.lineWidth = 2.4;
-    roundedRectPath(renderingContext, -size * 0.46, -size * 0.35, size * 0.92, size * 0.7, size * 0.14);
-    renderingContext.fill();
-    renderingContext.stroke();
-
-    renderingContext.fillStyle = "#e4433d";
-    renderingContext.fillRect(-size * 0.11, -size * 0.24, size * 0.22, size * 0.48);
-    renderingContext.fillRect(-size * 0.24, -size * 0.11, size * 0.48, size * 0.22);
-    return true;
+    logAssetRenderDebug("big_medkit", asset.failed ? "skip:asset-failed" : "skip:asset-pending", asset, {
+      id: bonus.id,
+      type: bonus.type,
+      x: bonus.x,
+      y: bonus.y,
+    });
+    return false;
   }
 
   const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
   const size = BIG_MEDKIT_DRAW_SIZE * pulse;
 
   drawImageAssetCentered(renderingContext, asset, size);
+  logAssetRenderDebug("big_medkit", "draw:webp", asset, {
+    id: bonus.id,
+    type: bonus.type,
+    x: bonus.x,
+    y: bonus.y,
+    size,
+  });
   return true;
 }
 
@@ -2826,25 +2926,24 @@ function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool
     renderingContext.translate(pool.x, pool.y);
     drawImageAssetCentered(renderingContext, asset, size);
     renderingContext.restore();
+    logAssetRenderDebug("acid_pool", "draw:webp", asset, {
+      id: pool.id,
+      x: pool.x,
+      y: pool.y,
+      radius: pool.radius,
+      size,
+      fade,
+    });
     return;
   }
 
-  const gradient = renderingContext.createRadialGradient(pool.x, pool.y, 6, pool.x, pool.y, pool.radius * 1.05);
-  gradient.addColorStop(0, "rgba(208, 255, 92, 0.82)");
-  gradient.addColorStop(0.55, "rgba(116, 255, 72, 0.5)");
-  gradient.addColorStop(1, "rgba(20, 92, 32, 0.18)");
-  renderingContext.globalAlpha = fade;
-  renderingContext.fillStyle = gradient;
-  renderingContext.beginPath();
-  renderingContext.arc(pool.x, pool.y, pool.radius, 0, Math.PI * 2);
-  renderingContext.fill();
-
-  renderingContext.strokeStyle = "rgba(179, 255, 79, 0.72)";
-  renderingContext.lineWidth = 2;
-  renderingContext.beginPath();
-  renderingContext.arc(pool.x, pool.y, pool.radius * 0.92, 0, Math.PI * 2);
-  renderingContext.stroke();
-  renderingContext.globalAlpha = 1;
+  logAssetRenderDebug("acid_pool", asset.failed ? "skip:asset-failed" : "skip:asset-pending", asset, {
+    id: pool.id,
+    x: pool.x,
+    y: pool.y,
+    radius: pool.radius,
+    fade,
+  });
 }
 
 function drawEnemyHealthBar(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
@@ -3015,14 +3114,6 @@ function bonusColor(type: BonusType) {
   return "#f3f3f3";
 }
 
-function bonusGlyph(type: BonusType) {
-  if (type === "small_medkit") return "+";
-  if (type === "big_medkit") return "++";
-  if (type === "speed") return "Z";
-  if (type === "shield") return "O";
-  return "A";
-}
-
 function pickEdge(): EdgeSide {
   const edges: EdgeSide[] = ["top", "right", "bottom", "left"];
   return edges[Math.floor(Math.random() * edges.length)] ?? "top";
@@ -3081,28 +3172,6 @@ function approachAngle(current: number, target: number, maxStep: number) {
   return current + Math.sign(delta) * maxStep;
 }
 
-function roundedRectPath(
-  renderingContext: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  const r = Math.min(radius, width / 2, height / 2);
-  renderingContext.beginPath();
-  renderingContext.moveTo(x + r, y);
-  renderingContext.lineTo(x + width - r, y);
-  renderingContext.quadraticCurveTo(x + width, y, x + width, y + r);
-  renderingContext.lineTo(x + width, y + height - r);
-  renderingContext.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  renderingContext.lineTo(x + r, y + height);
-  renderingContext.quadraticCurveTo(x, y + height, x, y + height - r);
-  renderingContext.lineTo(x, y + r);
-  renderingContext.quadraticCurveTo(x, y, x + r, y);
-  renderingContext.closePath();
-}
-
 function resolveAssetUrl(path: string) {
   if (/^(?:https?:|data:|blob:)/.test(path)) {
     return path;
@@ -3136,6 +3205,11 @@ function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 
     settled = true;
     asset.loaded = true;
     asset.failed = false;
+    logTrackedAssetLoadDebug(asset, "success", {
+      label,
+      attempt,
+      resolvedUrl,
+    });
     emitUi();
   };
 
@@ -3148,6 +3222,11 @@ function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 
     asset.loaded = true;
     asset.failed = true;
     asset.image = null;
+    logTrackedAssetLoadDebug(asset, "failure", {
+      label,
+      attempt,
+      resolvedUrl,
+    });
     console.warn(
       `[Zombie Apocalypse Survival] Failed to load ${label} after ${attempt + 1} attempts: ${asset.path}`,
       { resolvedUrl },
@@ -3163,6 +3242,12 @@ function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 
     const nextDelay = IMAGE_LOAD_RETRY_DELAYS_MS[attempt];
 
     if (nextDelay !== undefined) {
+      logTrackedAssetLoadDebug(asset, "retry", {
+        label,
+        attempt,
+        nextDelay,
+        resolvedUrl,
+      });
       settled = true;
       window.setTimeout(() => loadImageWithRetry(asset, label, attempt + 1), nextDelay);
       return;
@@ -3174,6 +3259,11 @@ function loadImageWithRetry(asset: LoadableImageAsset, label: string, attempt = 
   asset.loaded = false;
   asset.failed = false;
   asset.image = image;
+  logTrackedAssetLoadDebug(asset, "request", {
+    label,
+    attempt,
+    resolvedUrl,
+  });
   image.decoding = "async";
   image.onload = () => {
     if (typeof image.decode === "function") {
