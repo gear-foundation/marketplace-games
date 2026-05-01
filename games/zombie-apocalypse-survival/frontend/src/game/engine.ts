@@ -278,6 +278,7 @@ const ASSET_DEBUG_TARGET_PATHS = [
   "/assets/bonuses/small-medkit.webp",
   "/assets/bonuses/big-medkit.webp",
   "/assets/effects/acid-pool.webp",
+  "/assets/effects/acid-spit.webp",
 ] as const;
 
 type ZombieStripName = "idle" | "walk" | "attack" | "hit" | "death";
@@ -855,6 +856,7 @@ function debugAssetName(path: string) {
   if (path.includes("/small-medkit.")) return "small_medkit";
   if (path.includes("/big-medkit.")) return "big_medkit";
   if (path.includes("/acid-pool.")) return "acid_pool";
+  if (path.includes("/acid-spit.")) return "acid_spit";
   return path;
 }
 
@@ -912,18 +914,18 @@ function logTrackedAssetLoadDebug(
 }
 
 function logAssetRenderDebug(
-  name: "small_medkit" | "big_medkit" | "acid_pool",
-  status: "draw:webp" | "skip:asset-pending" | "skip:asset-failed",
+  name: "small_medkit" | "big_medkit" | "acid_pool" | "acid_spit",
+  status: "draw:webp" | "draw:fallback" | "skip:asset-pending",
   asset: ImageAsset,
   payload: Record<string, unknown>,
 ) {
   logAssetDebug(`render:${name}:${payload.id ?? "unknown"}:${status}`, "render", {
     name,
     status,
-    drawn: status === "draw:webp" ? "webp asset" : "nothing",
+    drawn: status === "draw:webp" ? "webp asset" : status === "draw:fallback" ? "canvas fallback" : "nothing",
     asset: debugAssetSnapshot(asset),
     ...payload,
-  }, status === "skip:asset-failed" ? "warn" : "info");
+  }, status === "draw:fallback" ? "warn" : "info");
 }
 
 function nextId(prefix: string) {
@@ -1036,7 +1038,7 @@ function snapshotLoading(current: GameState): LoadingData {
   const loaded = required.filter((asset) => asset.loaded && !asset.failed).length;
   const completed = required.filter((asset) => asset.loaded).length;
   const progress = total > 0 ? completed / total : 1;
-  const active = completed < total || failed > 0;
+  const active = completed < total;
 
   return {
     active,
@@ -1044,7 +1046,11 @@ function snapshotLoading(current: GameState): LoadingData {
     failed,
     total,
     progress,
-    label: failed > 0 ? `Asset load failed ${failed}/${total}` : active ? `Loading assets ${completed}/${total}` : "Ready",
+    label: active
+      ? `Loading assets ${completed}/${total}`
+      : failed > 0
+        ? `Ready with ${failed} fallback asset${failed === 1 ? "" : "s"}`
+        : "Ready",
   };
 }
 
@@ -2689,17 +2695,35 @@ function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: 
 
       renderingContext.save();
       renderingContext.rotate(angle);
-      renderingContext.fillStyle = "rgba(177, 255, 68, 0.14)";
-      renderingContext.beginPath();
-      renderingContext.arc(0, 0, projectile.radius + 8, 0, Math.PI * 2);
-      renderingContext.fill();
       drawImageAssetCentered(renderingContext, asset, size);
       renderingContext.restore();
+      logAssetRenderDebug("acid_spit", "draw:webp", asset, {
+        id: projectile.id,
+        x: projectile.x,
+        y: projectile.y,
+        radius: projectile.radius,
+        distance: projectile.distance,
+        size,
+      });
     } else {
-      renderingContext.fillStyle = "#6cff9d";
-      renderingContext.beginPath();
-      renderingContext.arc(0, 0, projectile.radius, 0, Math.PI * 2);
-      renderingContext.fill();
+      if (asset.failed) {
+        drawAcidSpitFallback(renderingContext, projectile);
+        logAssetRenderDebug("acid_spit", "draw:fallback", asset, {
+          id: projectile.id,
+          x: projectile.x,
+          y: projectile.y,
+          radius: projectile.radius,
+          distance: projectile.distance,
+        });
+      } else {
+        logAssetRenderDebug("acid_spit", "skip:asset-pending", asset, {
+          id: projectile.id,
+          x: projectile.x,
+          y: projectile.y,
+          radius: projectile.radius,
+          distance: projectile.distance,
+        });
+      }
     }
   }
 
@@ -2760,6 +2784,13 @@ function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: 
   renderingContext.restore();
 }
 
+function drawAcidSpitFallback(renderingContext: CanvasRenderingContext2D, projectile: Projectile) {
+  renderingContext.fillStyle = "#6cff9d";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, projectile.radius, 0, Math.PI * 2);
+  renderingContext.fill();
+}
+
 function drawImageAssetCentered(renderingContext: CanvasRenderingContext2D, asset: ImageAsset, size: number) {
   if (!asset.image) {
     return;
@@ -2787,6 +2818,10 @@ function drawImageAssetCentered(renderingContext: CanvasRenderingContext2D, asse
     drawWidth,
     drawHeight,
   );
+}
+
+function bonusImageAssetForType(type: BonusType) {
+  return bonusImageAssets[type];
 }
 
 function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
@@ -2819,13 +2854,69 @@ function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, tim
     return;
   }
 
+  if (bonusImageAssetForType(bonus.type).failed) {
+    drawGenericBonusFallback(renderingContext, bonus);
+  }
+
   renderingContext.restore();
+}
+
+function drawGenericBonusFallback(renderingContext: CanvasRenderingContext2D, bonus: Bonus) {
+  renderingContext.fillStyle = bonusColor(bonus.type);
+  renderingContext.strokeStyle = "rgba(255, 255, 255, 0.5)";
+  renderingContext.lineWidth = 2;
+
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, bonus.radius, 0, Math.PI * 2);
+  renderingContext.fill();
+  renderingContext.stroke();
+
+  renderingContext.fillStyle = "#112211";
+  renderingContext.font = "700 18px 'IBM Plex Sans', sans-serif";
+  renderingContext.textAlign = "center";
+  renderingContext.textBaseline = "middle";
+  renderingContext.fillText(bonusGlyph(bonus.type), 0, 1);
+}
+
+function drawMedkitFallback(
+  renderingContext: CanvasRenderingContext2D,
+  size: number,
+  radius: number,
+  glowColor: string,
+) {
+  renderingContext.fillStyle = glowColor;
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, radius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.fillStyle = "#f4f0e7";
+  renderingContext.strokeStyle = "rgba(22, 18, 18, 0.9)";
+  renderingContext.lineWidth = 2.2;
+  renderingContext.beginPath();
+  renderingContext.roundRect(-size * 0.42, -size * 0.33, size * 0.84, size * 0.66, size * 0.14);
+  renderingContext.fill();
+  renderingContext.stroke();
+
+  renderingContext.fillStyle = "#e4433d";
+  renderingContext.fillRect(-size * 0.09, -size * 0.2, size * 0.18, size * 0.4);
+  renderingContext.fillRect(-size * 0.2, -size * 0.09, size * 0.4, size * 0.18);
 }
 
 function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
   const asset = bonusImageAssets.small_medkit;
   if (!asset.loaded || !asset.image) {
-    logAssetRenderDebug("small_medkit", asset.failed ? "skip:asset-failed" : "skip:asset-pending", asset, {
+    if (asset.failed) {
+      const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
+      drawMedkitFallback(renderingContext, SMALL_MEDKIT_DRAW_SIZE * pulse, bonus.radius + 7, "rgba(255, 110, 96, 0.18)");
+      logAssetRenderDebug("small_medkit", "draw:fallback", asset, {
+        id: bonus.id,
+        type: bonus.type,
+        x: bonus.x,
+        y: bonus.y,
+      });
+      return true;
+    }
+    logAssetRenderDebug("small_medkit", "skip:asset-pending", asset, {
       id: bonus.id,
       type: bonus.type,
       x: bonus.x,
@@ -2851,7 +2942,19 @@ function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus:
 function drawBigMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
   const asset = bonusImageAssets.big_medkit;
   if (!asset.loaded || !asset.image) {
-    logAssetRenderDebug("big_medkit", asset.failed ? "skip:asset-failed" : "skip:asset-pending", asset, {
+    if (asset.failed) {
+      const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
+      drawMedkitFallback(renderingContext, BIG_MEDKIT_DRAW_SIZE * pulse, bonus.radius + 9, "rgba(255, 156, 102, 0.22)");
+      logAssetRenderDebug("big_medkit", "draw:fallback", asset, {
+        id: bonus.id,
+        type: bonus.type,
+        x: bonus.x,
+        y: bonus.y,
+      });
+      return true;
+    }
+
+    logAssetRenderDebug("big_medkit", "skip:asset-pending", asset, {
       id: bonus.id,
       type: bonus.type,
       x: bonus.x,
@@ -2937,13 +3040,46 @@ function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool
     return;
   }
 
-  logAssetRenderDebug("acid_pool", asset.failed ? "skip:asset-failed" : "skip:asset-pending", asset, {
+  if (asset.failed) {
+    drawAcidPoolFallback(renderingContext, pool, fade);
+    logAssetRenderDebug("acid_pool", "draw:fallback", asset, {
+      id: pool.id,
+      x: pool.x,
+      y: pool.y,
+      radius: pool.radius,
+      fade,
+    });
+    return;
+  }
+
+  logAssetRenderDebug("acid_pool", "skip:asset-pending", asset, {
     id: pool.id,
     x: pool.x,
     y: pool.y,
     radius: pool.radius,
     fade,
   });
+}
+
+function drawAcidPoolFallback(renderingContext: CanvasRenderingContext2D, pool: AcidPool, fade: number) {
+  const gradient = renderingContext.createRadialGradient(pool.x, pool.y, 6, pool.x, pool.y, pool.radius * 1.05);
+  gradient.addColorStop(0, "rgba(208, 255, 92, 0.82)");
+  gradient.addColorStop(0.55, "rgba(116, 255, 72, 0.5)");
+  gradient.addColorStop(1, "rgba(20, 92, 32, 0.18)");
+
+  renderingContext.save();
+  renderingContext.globalAlpha *= fade;
+  renderingContext.fillStyle = gradient;
+  renderingContext.beginPath();
+  renderingContext.arc(pool.x, pool.y, pool.radius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.strokeStyle = "rgba(179, 255, 79, 0.72)";
+  renderingContext.lineWidth = 2;
+  renderingContext.beginPath();
+  renderingContext.arc(pool.x, pool.y, pool.radius * 0.92, 0, Math.PI * 2);
+  renderingContext.stroke();
+  renderingContext.restore();
 }
 
 function drawEnemyHealthBar(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
@@ -3112,6 +3248,14 @@ function bonusColor(type: BonusType) {
   if (type === "speed") return "#ffd54a";
   if (type === "shield") return "#67d8ff";
   return "#f3f3f3";
+}
+
+function bonusGlyph(type: BonusType) {
+  if (type === "small_medkit") return "+";
+  if (type === "big_medkit") return "++";
+  if (type === "speed") return "Z";
+  if (type === "shield") return "O";
+  return "A";
 }
 
 function pickEdge(): EdgeSide {
