@@ -1,11 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AccountProvider, ApiProvider, useAccount } from "@gear-js/react-hooks";
-import { Wallet } from "@gear-js/wallet-connect";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import "@gear-js/ui/dist/index.css";
-import "@gear-js/vara-ui/dist/style.css";
-import "@gear-js/wallet-connect/dist/style.css";
 import "./styles.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -59,6 +53,7 @@ const DEFAULT_BACKEND_URL = "https://arcade-vara-production.up.railway.app";
 const BACKEND_URL = (
   import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? "/api" : DEFAULT_BACKEND_URL)
 ).replace(/\/+$/, "");
+const LazyWalletRuntime = React.lazy(() => import("./wallet-runtime"));
 
 function getPlatformGameImage(slug: string, fallback?: string): string {
   switch (slug) {
@@ -66,8 +61,8 @@ function getPlatformGameImage(slug: string, fallback?: string): string {
     case "skybound-jump":   return "/monkey_run_16x9.webp";
     case "lumberjack":      return "/lumberjack_16x9.webp";
     case "nebula-blaster":  return "/nebula_blaster_16x9.webp";
-    case "2048":            return "/2048image.png";
-    case "deep-sea-feast":  return "/deep_sea_feast.png";
+    case "2048":            return "/2048image.webp";
+    case "deep-sea-feast":  return "/deep_sea_feast.webp";
     case "robo-miner":      return "/robo_miner_back.jpg";
     default:                return fallback || "";
   }
@@ -129,7 +124,7 @@ const FALLBACK_GAMES: GameCard[] = [
     description: "Merge tiles, post your best score on-chain, and play with daily gas voucher support on Vara.",
     url: "https://2048-vara.up.railway.app/",
     status: "live",
-    image: "/2048image.png",
+    image: "/2048image.webp",
     categories: ["brain"],
   },
   {
@@ -138,7 +133,7 @@ const FALLBACK_GAMES: GameCard[] = [
     description: "An underwater survival arcade game where you grow through fish tiers, avoid predators, and submit your best run on-chain.",
     url: "https://deep-sea-feast-vara.up.railway.app/",
     status: "live",
-    image: "/deep_sea_feast.png",
+    image: "/deep_sea_feast.webp",
     categories: ["arcade"],
   },
   {
@@ -162,6 +157,12 @@ const FALLBACK_GAMES: GameCard[] = [
 ];
 
 const SOON_GAMES: GameCard[] = [
+  {
+    id: "zombie-apocalypse-survival",
+    title: "Zombie Apocalypse Survival",
+    description: "Hold the line through escalating zombie waves, upgrade your run, and prepare for on-chain survival records.",
+    status: "soon", image: "/back_zombie.webp", categories: ["battle", "arcade"],
+  },
   {
     id: "chain-battles",
     title: "Chain Battles",
@@ -311,10 +312,64 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
-function WalletButton() {
+type IdleWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (
+    callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void,
+    options?: { timeout: number },
+  ) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+function WalletFallbackButton({ loading, onActivate }: { loading?: boolean; onActivate?: () => void }) {
   return (
-    <div className="wallet-slot" aria-label="Wallet connection">
-      <Wallet theme="vara" displayBalance={false} />
+    <button
+      className="wallet-btn"
+      onClick={onActivate}
+      disabled={loading}
+      aria-busy={loading ? "true" : undefined}
+    >
+      {loading ? "Loading wallet..." : "Connect Wallet"}
+    </button>
+  );
+}
+
+function WalletButton({ onAccountChange }: { onAccountChange: (accountIdentity: string) => void }) {
+  const [walletRuntimeEnabled, setWalletRuntimeEnabled] = useState(false);
+
+  useEffect(() => {
+    const idleWindow = window as IdleWindow;
+    if (idleWindow.requestIdleCallback) {
+      const idleHandle = idleWindow.requestIdleCallback(
+        () => setWalletRuntimeEnabled(true),
+        { timeout: 1200 },
+      );
+      return () => idleWindow.cancelIdleCallback?.(idleHandle);
+    }
+
+    const timeoutHandle = window.setTimeout(() => setWalletRuntimeEnabled(true), 800);
+    return () => window.clearTimeout(timeoutHandle);
+  }, []);
+
+  const activateWallet = () => setWalletRuntimeEnabled(true);
+
+  return (
+    <div
+      className="wallet-slot"
+      aria-label="Wallet connection"
+      onMouseEnter={activateWallet}
+      onFocus={activateWallet}
+    >
+      {walletRuntimeEnabled ? (
+        <Suspense fallback={<WalletFallbackButton loading />}>
+          <LazyWalletRuntime
+            appName={APP_NAME}
+            nodeAddress={VARA_NODE_ADDRESS}
+            onAccountChange={onAccountChange}
+          />
+        </Suspense>
+      ) : (
+        <WalletFallbackButton onActivate={activateWallet} />
+      )}
     </div>
   );
 }
@@ -378,7 +433,14 @@ function GameCardEl({ game, voteCount, voted, canVote, votePending = false, onVo
     >
       <div className="game-card__bg">
         {game.image ? (
-          <img src={game.image} alt={game.title} className="game-card__img" />
+          <img
+            src={game.image}
+            alt={game.title}
+            className="game-card__img"
+            loading={featured ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={featured ? "high" : "low"}
+          />
         ) : (
           <div className="game-card__placeholder" />
         )}
@@ -432,16 +494,13 @@ function GameCardEl({ game, voteCount, voted, canVote, votePending = false, onVo
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
-const queryClient = new QueryClient();
-
 function PlatformApp() {
-  const { account } = useAccount();
   const [liveGames, setLiveGames] = useState<GameCard[]>(FALLBACK_GAMES);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [votes, setVotes] = useState<Record<string, number>>({});
   const [myVotes, setMyVotes] = useState<Set<string>>(new Set());
   const [pendingVotes, setPendingVotes] = useState<Set<string>>(new Set());
-  const accountIdentity = account?.decodedAddress || account?.address || "";
+  const [accountIdentity, setAccountIdentity] = useState("");
   const votesEnabled = Boolean(BACKEND_URL);
   const walletConnected = Boolean(accountIdentity);
   const canVote = votesEnabled && walletConnected;
@@ -542,7 +601,7 @@ function PlatformApp() {
           <span className="network-dot" />
           Vara Mainnet
         </span>
-        <WalletButton />
+        <WalletButton onAccountChange={setAccountIdentity} />
       </header>
 
       <section className="hero">
@@ -629,12 +688,6 @@ function PlatformApp() {
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ApiProvider initialArgs={{ endpoint: VARA_NODE_ADDRESS }}>
-        <AccountProvider appName={APP_NAME}>
-          <PlatformApp />
-        </AccountProvider>
-      </ApiProvider>
-    </QueryClientProvider>
+    <PlatformApp />
   </React.StrictMode>,
 );

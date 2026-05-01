@@ -1,39 +1,39 @@
 {
   "name": "zombie-level2",
   "description": "Acid zombie, top-down GTA2-like camera, cartoon 2D sprite sheet.",
-  "sheet": "zombie-level2-spritesheet.png",
-  "sourceSheet": "zombie-level2-spritesheet-chroma.png",
+  "sheet": "zombie-level2-spritesheet.webp",
+  "sourceSheet": "zombie-level2-spritesheet-chroma.webp",
   "frameWidth": 320,
   "frameHeight": 320,
   "animations": [
     {
       "name": "idle",
-      "file": "zombie-level2-idle.png",
+      "file": "zombie-level2-idle.webp",
       "frames": 5,
       "fps": 5
     },
     {
       "name": "walk",
-      "file": "zombie-level2-walk.png",
+      "file": "zombie-level2-walk.webp",
       "frames": 8,
       "fps": 8
     },
     {
       "name": "attack",
-      "file": "zombie-level2-attack.png",
+      "file": "zombie-level2-attack.webp",
       "frames": 5,
       "fps": 14,
       "hitFrame": 2
     },
     {
       "name": "hit",
-      "file": "zombie-level2-hit.png",
+      "file": "zombie-level2-hit.webp",
       "frames": 3,
       "fps": 14
     },
     {
       "name": "death",
-      "file": "zombie-level2-death.png",
+      "file": "zombie-level2-death.webp",
       "frames": 7,
       "fps": 10
     }

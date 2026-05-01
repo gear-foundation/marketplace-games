@@ -1,57 +1,57 @@
 {
   "name": "zombie-level3",
   "description": "Zombie ninja, top-down GTA2-like camera, cartoon 2D sprite sheet.",
-  "sheet": "zombie-level3-spritesheet.png",
-  "sourceSheet": "zombie-level3-spritesheet-chroma.png",
+  "sheet": "zombie-level3-spritesheet.webp",
+  "sourceSheet": "zombie-level3-spritesheet-chroma.webp",
   "frameWidth": 448,
   "frameHeight": 448,
   "animations": [
     {
       "name": "idle",
-      "file": "zombie-level3-idle.png",
+      "file": "zombie-level3-idle.webp",
       "frames": 5,
       "fps": 5
     },
     {
       "name": "run",
-      "file": "zombie-level3-run.png",
+      "file": "zombie-level3-run.webp",
       "frames": 8,
       "fps": 16
     },
     {
       "name": "dash",
-      "file": "zombie-level3-dash.png",
+      "file": "zombie-level3-dash.webp",
       "frames": 5,
       "fps": 18
     },
     {
       "name": "attack",
-      "file": "zombie-level3-attack.png",
+      "file": "zombie-level3-attack.webp",
       "frames": 7,
       "fps": 18,
       "hitFrame": 3
     },
     {
       "name": "jump_back",
-      "file": "zombie-level3-jump_back.png",
+      "file": "zombie-level3-jump_back.webp",
       "frames": 6,
       "fps": 16
     },
     {
       "name": "hit",
-      "file": "zombie-level3-hit.png",
+      "file": "zombie-level3-hit.webp",
       "frames": 3,
       "fps": 16
     },
     {
       "name": "death",
-      "file": "zombie-level3-death.png",
+      "file": "zombie-level3-death.webp",
       "frames": 8,
       "fps": 10
     },
     {
       "name": "warning",
-      "file": "zombie-level3-warning.png",
+      "file": "zombie-level3-warning.webp",
       "frames": 4,
       "fps": 14
     }

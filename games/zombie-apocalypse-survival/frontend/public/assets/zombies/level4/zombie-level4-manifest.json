@@ -1,63 +1,63 @@
 {
   "name": "zombie-level4",
   "description": "Zombie tank, top-down GTA2-like camera, cartoon 2D sprite sheet.",
-  "sheet": "zombie-level4-spritesheet.png",
-  "sourceSheet": "zombie-level4-spritesheet-chroma.png",
+  "sheet": "zombie-level4-spritesheet.webp",
+  "sourceSheet": "zombie-level4-spritesheet-chroma.webp",
   "frameWidth": 768,
   "frameHeight": 768,
   "animations": [
     {
       "name": "idle",
-      "file": "zombie-level4-idle.png",
+      "file": "zombie-level4-idle.webp",
       "frames": 5,
       "fps": 4
     },
     {
       "name": "walk",
-      "file": "zombie-level4-walk.png",
+      "file": "zombie-level4-walk.webp",
       "frames": 8,
       "fps": 7
     },
     {
       "name": "attack_windup",
-      "file": "zombie-level4-attack-windup.png",
+      "file": "zombie-level4-attack-windup.webp",
       "frames": 6,
       "fps": 10
     },
     {
       "name": "smash",
-      "file": "zombie-level4-smash.png",
+      "file": "zombie-level4-smash.webp",
       "frames": 7,
       "fps": 14,
       "hitFrame": 3
     },
     {
       "name": "recovery",
-      "file": "zombie-level4-recovery.png",
+      "file": "zombie-level4-recovery.webp",
       "frames": 6,
       "fps": 8
     },
     {
       "name": "hit",
-      "file": "zombie-level4-hit.png",
+      "file": "zombie-level4-hit.webp",
       "frames": 3,
       "fps": 12
     },
     {
       "name": "death",
-      "file": "zombie-level4-death.png",
-      "frames": 10,
-      "fps": 8
+      "file": "zombie-level4-death.webp",
+      "frames": 6,
+      "fps": 7
     },
     {
       "name": "roar",
-      "file": "zombie-level4-roar.png",
+      "file": "zombie-level4-roar.webp",
       "frames": 6,
       "fps": 7
     },
     {
       "name": "hammer_impact_fx",
-      "file": "fx-hammer-impact.png",
+      "file": "fx-hammer-impact.webp",
       "frames": 5,
       "fps": 18
     }

@@ -18,6 +18,19 @@ type EnemyType = "normal" | "acid" | "ninja" | "tank";
 type BonusType = "small_medkit" | "big_medkit" | "speed" | "shield" | "airstrike";
 type ProjectileType = "bullet" | "rocket" | "acid_spit";
 type EdgeSide = "top" | "bottom" | "left" | "right";
+type EnemyState =
+  | "approaching"
+  | "perched"
+  | "warning"
+  | "attacking"
+  | "jump_back"
+  | "windup"
+  | "smash"
+  | "recovery"
+  | "roar";
+type PlayerWeaponStripKey = "pistol" | "rifle" | "shotgun" | "bazooka";
+type PlayerWeaponStripName = "idle" | "walk" | "shoot";
+type PlayerSharedStripName = "hit" | "stunned" | "death";
 type Vec2 = { x: number; y: number };
 
 type Player = {
@@ -45,6 +58,12 @@ type Player = {
   bazookaCooldown: number;
   bazookaPendingDelay: number;
   bazookaPendingAngle: number;
+  idlePhase: number;
+  movePhase: number;
+  movingAnim: boolean;
+  shootAnim: number;
+  hitAnim: number;
+  deathAnim: number;
 };
 
 type Enemy = {
@@ -60,7 +79,7 @@ type Enemy = {
   anchorX?: number;
   anchorY?: number;
   edge?: EdgeSide;
-  state?: "approaching" | "perched" | "windup";
+  state?: EnemyState;
   zigzagPhase?: number;
   backDistance?: number;
   windupTimer?: number;
@@ -75,6 +94,13 @@ type Enemy = {
   corpseFade?: number;
   deathFlip?: number;
   movingThisTick?: boolean;
+  dashTimer?: number;
+  recoveryTimer?: number;
+  impactTimer?: number;
+  jumpVx?: number;
+  jumpVy?: number;
+  didRoar?: boolean;
+  carriedByProjectileId?: string;
   hurtFlash: number;
   alive: boolean;
 };
@@ -92,6 +118,7 @@ type Projectile = {
   maxDistance: number;
   targetX?: number;
   targetY?: number;
+  harpoonedEnemyIds?: string[];
   alive: boolean;
 };
 
@@ -167,8 +194,25 @@ const NORMAL_ATTACK_HIT_MOMENT = 0.24;
 const ACID_ATTACK_ANIM_DURATION = 0.5;
 const ACID_ATTACK_RELEASE_MOMENT = 0.28;
 const ACID_DEATH_ANIM_DURATION = 0.72;
+const NINJA_WARNING_DURATION = 0.22;
+const NINJA_ATTACK_ANIM_DURATION = 0.38;
+const NINJA_ATTACK_HIT_MOMENT = 0.2;
+const NINJA_JUMP_BACK_DURATION = 0.32;
+const NINJA_DEATH_ANIM_DURATION = 0.78;
+const NINJA_ZIGZAG_FREQUENCY = 8.4;
+const NINJA_ZIGZAG_LATERAL_SPEED = 132;
+const NINJA_ZIGZAG_DIRECTION_BLEND = 0.52;
+const NINJA_JUMP_BACK_DISTANCE_MULTIPLIER = 4;
+const TANK_WINDUP_DURATION = 0.7;
+const TANK_SMASH_ANIM_DURATION = 0.48;
+const TANK_SMASH_HIT_MOMENT = 0.22;
+const TANK_RECOVERY_DURATION = 0.72;
+const TANK_ROAR_DURATION = 0.68;
+const TANK_DEATH_ANIM_DURATION = 1.05;
+const TANK_IMPACT_FX_DURATION = 0.24;
 const NINJA_ATTACK_RANGE = 40;
 const TANK_ATTACK_RANGE = 74;
+const TANK_ROAR_TRIGGER_RANGE = 260;
 const ACID_STOP_DISTANCE = CANVAS_H * 0.08;
 const ACID_POOL_RADIUS = CANVAS_H * 0.07;
 const SHOTGUN_NORMAL_RANGE = CANVAS_H / 3;
@@ -193,6 +237,29 @@ const ACID_ZOMBIE_FRAME_H = 320;
 const ACID_ZOMBIE_DRAW_SCALE = 0.43;
 const ACID_ZOMBIE_PIVOT_X = 0.5;
 const ACID_ZOMBIE_PIVOT_Y = 0.46;
+const PLAYER_SPRITE_BASE_FACING = Math.PI / 2;
+const PLAYER_SPRITE_FRAME_W = 320;
+const PLAYER_SPRITE_FRAME_H = 320;
+const PLAYER_SPRITE_DRAW_SCALE = 0.38;
+const PLAYER_SPRITE_PIVOT_X = 0.5;
+const PLAYER_SPRITE_PIVOT_Y = 0.5;
+const NINJA_ZOMBIE_BASE_FACING = Math.PI / 2;
+const NINJA_ZOMBIE_FRAME_W = 448;
+const NINJA_ZOMBIE_FRAME_H = 448;
+const NINJA_ZOMBIE_DRAW_SCALE = 0.36;
+const NINJA_ZOMBIE_PIVOT_X = 0.5;
+const NINJA_ZOMBIE_PIVOT_Y = 0.48;
+const TANK_ZOMBIE_BASE_FACING = Math.PI / 2;
+const TANK_ZOMBIE_FRAME_W = 768;
+const TANK_ZOMBIE_FRAME_H = 768;
+const TANK_ZOMBIE_DRAW_SCALE = 0.28;
+const TANK_ZOMBIE_PIVOT_X = 0.5;
+const TANK_ZOMBIE_PIVOT_Y = 0.48;
+const SMALL_MEDKIT_DRAW_SIZE = 42;
+const BIG_MEDKIT_DRAW_SIZE = 50;
+const SHIELD_BONUS_DRAW_SIZE = 46;
+const AIRSTRIKE_BONUS_DRAW_SIZE = 50;
+const ACID_POOL_ART_SCALE = 2.35;
 
 type ZombieStripName = "idle" | "walk" | "attack" | "hit" | "death";
 type ZombieStrip = {
@@ -205,9 +272,19 @@ type ZombieStrip = {
   loaded: boolean;
 };
 
+type PlayerStrip = ZombieStrip;
+type ImageAsset = {
+  path: string;
+  image: HTMLImageElement | null;
+  loaded: boolean;
+};
+
+type NinjaStripName = "idle" | "run" | "dash" | "attack" | "jump_back" | "hit" | "death" | "warning";
+type TankStripName = "idle" | "walk" | "attack_windup" | "smash" | "recovery" | "hit" | "death" | "roar" | "hammer_impact_fx";
+
 const normalZombieStrips: Record<ZombieStripName, ZombieStrip> = {
   idle: {
-    path: "/assets/zombies/level1/zombie-level1-idle.png",
+    path: "/assets/zombies/level1/zombie-level1-idle.webp",
     frames: 5,
     fps: 5,
     width: NORMAL_ZOMBIE_FRAME_W,
@@ -216,7 +293,7 @@ const normalZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   walk: {
-    path: "/assets/zombies/level1/zombie-level1-walk.png",
+    path: "/assets/zombies/level1/zombie-level1-walk.webp",
     frames: 8,
     fps: 10,
     width: NORMAL_ZOMBIE_FRAME_W,
@@ -225,7 +302,7 @@ const normalZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   attack: {
-    path: "/assets/zombies/level1/zombie-level1-attack.png",
+    path: "/assets/zombies/level1/zombie-level1-attack.webp",
     frames: 5,
     fps: 14,
     width: NORMAL_ZOMBIE_FRAME_W,
@@ -234,7 +311,7 @@ const normalZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   hit: {
-    path: "/assets/zombies/level1/zombie-level1-hit.png",
+    path: "/assets/zombies/level1/zombie-level1-hit.webp",
     frames: 3,
     fps: 14,
     width: NORMAL_ZOMBIE_FRAME_W,
@@ -243,7 +320,7 @@ const normalZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   death: {
-    path: "/assets/zombies/level1/zombie-level1-death.png",
+    path: "/assets/zombies/level1/zombie-level1-death.webp",
     frames: 7,
     fps: 10,
     width: NORMAL_ZOMBIE_FRAME_W,
@@ -255,7 +332,7 @@ const normalZombieStrips: Record<ZombieStripName, ZombieStrip> = {
 
 const acidZombieStrips: Record<ZombieStripName, ZombieStrip> = {
   idle: {
-    path: "/assets/zombies/level2/zombie-level2-idle.png",
+    path: "/assets/zombies/level2/zombie-level2-idle.webp",
     frames: 5,
     fps: 5,
     width: ACID_ZOMBIE_FRAME_W,
@@ -264,7 +341,7 @@ const acidZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   walk: {
-    path: "/assets/zombies/level2/zombie-level2-walk.png",
+    path: "/assets/zombies/level2/zombie-level2-walk.webp",
     frames: 8,
     fps: 8,
     width: ACID_ZOMBIE_FRAME_W,
@@ -273,7 +350,7 @@ const acidZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   attack: {
-    path: "/assets/zombies/level2/zombie-level2-attack.png",
+    path: "/assets/zombies/level2/zombie-level2-attack.webp",
     frames: 5,
     fps: 14,
     width: ACID_ZOMBIE_FRAME_W,
@@ -282,7 +359,7 @@ const acidZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   hit: {
-    path: "/assets/zombies/level2/zombie-level2-hit.png",
+    path: "/assets/zombies/level2/zombie-level2-hit.webp",
     frames: 3,
     fps: 14,
     width: ACID_ZOMBIE_FRAME_W,
@@ -291,7 +368,7 @@ const acidZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     loaded: false,
   },
   death: {
-    path: "/assets/zombies/level2/zombie-level2-death.png",
+    path: "/assets/zombies/level2/zombie-level2-death.webp",
     frames: 7,
     fps: 10,
     width: ACID_ZOMBIE_FRAME_W,
@@ -299,6 +376,356 @@ const acidZombieStrips: Record<ZombieStripName, ZombieStrip> = {
     image: null,
     loaded: false,
   },
+};
+
+const ninjaZombieStrips: Record<NinjaStripName, ZombieStrip> = {
+  idle: {
+    path: "/assets/zombies/level3/zombie-level3-idle.webp",
+    frames: 5,
+    fps: 5,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  run: {
+    path: "/assets/zombies/level3/zombie-level3-run.webp",
+    frames: 8,
+    fps: 16,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  dash: {
+    path: "/assets/zombies/level3/zombie-level3-dash.webp",
+    frames: 5,
+    fps: 18,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  attack: {
+    path: "/assets/zombies/level3/zombie-level3-attack.webp",
+    frames: 7,
+    fps: 18,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  jump_back: {
+    path: "/assets/zombies/level3/zombie-level3-jump_back.webp",
+    frames: 6,
+    fps: 16,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  hit: {
+    path: "/assets/zombies/level3/zombie-level3-hit.webp",
+    frames: 3,
+    fps: 16,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  death: {
+    path: "/assets/zombies/level3/zombie-level3-death.webp",
+    frames: 8,
+    fps: 10,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  warning: {
+    path: "/assets/zombies/level3/zombie-level3-warning.webp",
+    frames: 4,
+    fps: 14,
+    width: NINJA_ZOMBIE_FRAME_W,
+    height: NINJA_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+};
+
+const tankZombieStrips: Record<TankStripName, ZombieStrip> = {
+  idle: {
+    path: "/assets/zombies/level4/zombie-level4-idle.webp",
+    frames: 5,
+    fps: 4,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  walk: {
+    path: "/assets/zombies/level4/zombie-level4-walk.webp",
+    frames: 8,
+    fps: 7,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  attack_windup: {
+    path: "/assets/zombies/level4/zombie-level4-attack-windup.webp",
+    frames: 6,
+    fps: 10,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  smash: {
+    path: "/assets/zombies/level4/zombie-level4-smash.webp",
+    frames: 7,
+    fps: 14,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  recovery: {
+    path: "/assets/zombies/level4/zombie-level4-recovery.webp",
+    frames: 6,
+    fps: 8,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  hit: {
+    path: "/assets/zombies/level4/zombie-level4-hit.webp",
+    frames: 3,
+    fps: 12,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  death: {
+    path: "/assets/zombies/level4/zombie-level4-death.webp",
+    frames: 6,
+    fps: 7,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  roar: {
+    path: "/assets/zombies/level4/zombie-level4-roar.webp",
+    frames: 6,
+    fps: 7,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  hammer_impact_fx: {
+    path: "/assets/zombies/level4/fx-hammer-impact.webp",
+    frames: 5,
+    fps: 18,
+    width: TANK_ZOMBIE_FRAME_W,
+    height: TANK_ZOMBIE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+};
+
+const playerWeaponStrips: Record<PlayerWeaponStripKey, Record<PlayerWeaponStripName, PlayerStrip>> = {
+  pistol: {
+    idle: {
+      path: "/assets/player/weapons/pistol/hero-pistol-idle.webp",
+      frames: 4,
+      fps: 5,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    walk: {
+      path: "/assets/player/weapons/pistol/hero-pistol-walk.webp",
+      frames: 8,
+      fps: 12,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    shoot: {
+      path: "/assets/player/weapons/pistol/hero-pistol-shoot.webp",
+      frames: 4,
+      fps: 18,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+  },
+  rifle: {
+    idle: {
+      path: "/assets/player/weapons/rifle/hero-rifle-idle.webp",
+      frames: 5,
+      fps: 5,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    walk: {
+      path: "/assets/player/weapons/rifle/hero-rifle-walk.webp",
+      frames: 8,
+      fps: 12,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    shoot: {
+      path: "/assets/player/weapons/rifle/hero-rifle-shoot.webp",
+      frames: 4,
+      fps: 20,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+  },
+  shotgun: {
+    idle: {
+      path: "/assets/player/weapons/shotgun/hero-shotgun-idle.webp",
+      frames: 4,
+      fps: 5,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    walk: {
+      path: "/assets/player/weapons/shotgun/hero-shotgun-walk.webp",
+      frames: 8,
+      fps: 12,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    shoot: {
+      path: "/assets/player/weapons/shotgun/hero-shotgun-shoot.webp",
+      frames: 6,
+      fps: 14,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+  },
+  bazooka: {
+    idle: {
+      path: "/assets/player/weapons/bazooka/hero-bazooka-idle.webp",
+      frames: 4,
+      fps: 5,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    walk: {
+      path: "/assets/player/weapons/bazooka/hero-bazooka-walk.webp",
+      frames: 8,
+      fps: 10,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+    shoot: {
+      path: "/assets/player/weapons/bazooka/hero-bazooka-shoot.webp",
+      frames: 7,
+      fps: 11,
+      width: PLAYER_SPRITE_FRAME_W,
+      height: PLAYER_SPRITE_FRAME_H,
+      image: null,
+      loaded: false,
+    },
+  },
+};
+
+const playerSharedStrips: Record<PlayerSharedStripName, PlayerStrip> = {
+  hit: {
+    path: "/assets/player/shared/hero-hit.webp",
+    frames: 3,
+    fps: 14,
+    width: PLAYER_SPRITE_FRAME_W,
+    height: PLAYER_SPRITE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  stunned: {
+    path: "/assets/player/shared/hero-stunned.webp",
+    frames: 5,
+    fps: 5,
+    width: PLAYER_SPRITE_FRAME_W,
+    height: PLAYER_SPRITE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+  death: {
+    path: "/assets/player/shared/hero-death.webp",
+    frames: 9,
+    fps: 9,
+    width: PLAYER_SPRITE_FRAME_W,
+    height: PLAYER_SPRITE_FRAME_H,
+    image: null,
+    loaded: false,
+  },
+};
+
+const bonusImageAssets: {
+  small_medkit: ImageAsset;
+  big_medkit: ImageAsset;
+  shield: ImageAsset;
+  airstrike: ImageAsset;
+} = {
+  small_medkit: {
+    path: "/assets/bonuses/small-medkit.webp",
+    image: null,
+    loaded: false,
+  },
+  big_medkit: {
+    path: "/assets/bonuses/big-medkit.webp",
+    image: null,
+    loaded: false,
+  },
+  shield: {
+    path: "/assets/bonuses/shield.webp",
+    image: null,
+    loaded: false,
+  },
+  airstrike: {
+    path: "/assets/bonuses/airstrike.webp",
+    image: null,
+    loaded: false,
+  },
+};
+
+const effectImageAssets: { acid_pool: ImageAsset } = {
+  acid_pool: {
+    path: "/assets/effects/acid-pool.webp",
+    image: null,
+    loaded: false,
+  },
+};
+
+const arenaImageAsset: ImageAsset = {
+  path: "/assets/arena/arena-street.webp",
+  image: null,
+  loaded: false,
 };
 
 let state = createInitialState("menu");
@@ -312,6 +739,12 @@ let onEndCallback: ((payload: GameEndPayload) => void) | null = null;
 let idCounter = 0;
 let normalZombieSpritesRequested = false;
 let acidZombieSpritesRequested = false;
+let ninjaZombieSpritesRequested = false;
+let tankZombieSpritesRequested = false;
+let playerSpritesRequested = false;
+let bonusSpritesRequested = false;
+let effectSpritesRequested = false;
+let arenaBackgroundRequested = false;
 
 function nextId(prefix: string) {
   idCounter += 1;
@@ -344,6 +777,12 @@ function createPlayer(): Player {
     bazookaCooldown: 0,
     bazookaPendingDelay: 0,
     bazookaPendingAngle: 0,
+    idlePhase: 0,
+    movePhase: 0,
+    movingAnim: false,
+    shootAnim: 0,
+    hitAnim: 0,
+    deathAnim: 0,
   };
 }
 
@@ -403,8 +842,14 @@ export function mountCanvas(el: HTMLCanvasElement, onEnd: (payload: GameEndPaylo
   canvas = el;
   ctx = el.getContext("2d");
   onEndCallback = onEnd;
+  ensureArenaBackgroundAsset();
+  ensureEffectSpriteAssets();
+  ensureBonusSpriteAssets();
   ensureNormalZombieSpriteAssets();
   ensureAcidZombieSpriteAssets();
+  ensureNinjaZombieSpriteAssets();
+  ensureTankZombieSpriteAssets();
+  ensurePlayerSpriteAssets();
   attachInput();
   if (!rafId) {
     rafId = requestAnimationFrame(frame);
@@ -428,8 +873,14 @@ export function unmountCanvas() {
 }
 
 export function startGame() {
+  ensureArenaBackgroundAsset();
+  ensureEffectSpriteAssets();
+  ensureBonusSpriteAssets();
   ensureNormalZombieSpriteAssets();
   ensureAcidZombieSpriteAssets();
+  ensureNinjaZombieSpriteAssets();
+  ensureTankZombieSpriteAssets();
+  ensurePlayerSpriteAssets();
   state = createInitialState("playing");
   hudData = snapshotHud(state);
 }
@@ -520,6 +971,9 @@ function tick(dt: number) {
   player.speedBoostTimer = Math.max(0, player.speedBoostTimer - dt);
   player.shotgunCooldown = Math.max(0, player.shotgunCooldown - dt);
   player.bazookaCooldown = Math.max(0, player.bazookaCooldown - dt);
+  player.shootAnim = Math.max(0, player.shootAnim - dt);
+  player.hitAnim = Math.max(0, player.hitAnim - dt);
+  player.idlePhase += dt * 3.2;
 
   while (state.time >= state.nextHealthUpgradeAt) {
     const bonus = state.nextHealthUpgradeAt <= 120 ? 25 : 10;
@@ -586,6 +1040,10 @@ function updateCosmetics(current: GameState, dt: number) {
   }
 
   current.cameraShake = Math.max(0, current.cameraShake - dt * 8);
+
+  if (current.player.health <= 0) {
+    current.player.deathAnim = Math.max(0, current.player.deathAnim - dt);
+  }
 }
 
 function updatePlayer(current: GameState, dt: number, insideAcid: boolean) {
@@ -610,10 +1068,16 @@ function updatePlayer(current: GameState, dt: number, insideAcid: boolean) {
     if (input.up) moveAxis += 1;
     if (input.down) moveAxis -= BACKWARD_SPEED_FACTOR;
 
+    player.movingAnim = Math.abs(moveAxis) > 0.001;
     player.x += forward.x * player.baseSpeed * speedMultiplier * moveAxis * dt;
     player.y += forward.y * player.baseSpeed * speedMultiplier * moveAxis * dt;
+    if (player.movingAnim) {
+      const cadence = player.currentWeapon === "bazooka" ? 5.4 : player.currentWeapon === "shotgun" ? 6.6 : 7.6;
+      player.movePhase += dt * cadence * Math.max(0.55, Math.abs(moveAxis)) * (player.speedBoostTimer > 0 ? 1.3 : 1);
+    }
     clampPlayer(player);
   } else {
+    player.movingAnim = false;
     cancelShootingFlow(player);
   }
 
@@ -704,6 +1168,7 @@ function updatePlayer(current: GameState, dt: number, insideAcid: boolean) {
     player.bazookaCooldown = 2;
     player.bazookaPendingDelay = 0.5;
     player.bazookaPendingAngle = player.angle;
+    triggerPlayerShootAnim(player, "bazooka");
     showBanner(current, "ROCKET PRIMED");
   }
 }
@@ -720,7 +1185,11 @@ function updateEnemies(current: GameState, dt: number) {
     enemy.movingThisTick = false;
     enemy.attackAnim = Math.max(0, (enemy.attackAnim ?? 0) - dt);
     enemy.hitAnim = Math.max(0, (enemy.hitAnim ?? 0) - dt);
-    enemy.idlePhase = (enemy.idlePhase ?? 0) + dt * 3.2;
+    enemy.windupTimer = Math.max(0, (enemy.windupTimer ?? 0) - dt);
+    enemy.dashTimer = Math.max(0, (enemy.dashTimer ?? 0) - dt);
+    enemy.recoveryTimer = Math.max(0, (enemy.recoveryTimer ?? 0) - dt);
+    enemy.impactTimer = Math.max(0, (enemy.impactTimer ?? 0) - dt);
+    enemy.idlePhase = (enemy.idlePhase ?? 0) + dt * (enemy.type === "tank" ? 1.5 : enemy.type === "ninja" ? 2.4 : 3.2);
 
     if (enemy.isDying) {
       enemy.deathAnim = Math.max(0, (enemy.deathAnim ?? 0) - dt);
@@ -730,6 +1199,17 @@ function updateEnemies(current: GameState, dt: number) {
           enemy.alive = false;
         }
       }
+      continue;
+    }
+
+    if (enemy.carriedByProjectileId) {
+      enemy.attackAnim = 0;
+      enemy.attackDidHit = true;
+      enemy.windupTimer = 0;
+      enemy.recoveryTimer = 0;
+      enemy.jumpVx = 0;
+      enemy.jumpVy = 0;
+      enemy.movingThisTick = true;
       continue;
     }
 
@@ -799,48 +1279,146 @@ function updateEnemies(current: GameState, dt: number) {
     }
 
     if (enemy.type === "ninja") {
-      const behindTarget = {
-        x: player.x - playerForward.x * (enemy.backDistance ?? 64),
-        y: player.y - playerForward.y * (enemy.backDistance ?? 64),
-      };
-      const desiredDirection = normalize(subtract(behindTarget, enemy));
-      const zigzag = perpendicular(desiredDirection);
-      const zigzagOffset = Math.sin(current.time * 6 + (enemy.zigzagPhase ?? 0)) * 34;
-      enemy.x += (desiredDirection.x * enemy.speed + zigzag.x * zigzagOffset) * dt;
-      enemy.y += (desiredDirection.y * enemy.speed + zigzag.y * zigzagOffset) * dt;
+      enemy.visualAngle = approachAngle(enemy.visualAngle ?? facingAngle, facingAngle, dt * 16);
 
+      const inAttackRange = distanceToPlayer <= enemy.radius + player.radius + NINJA_ATTACK_RANGE;
       const vectorToNinja = normalize(subtract(enemy, player));
       const behindDot = dot(playerForward, vectorToNinja);
-      if (
-        distanceToPlayer <= enemy.radius + player.radius + NINJA_ATTACK_RANGE &&
-        behindDot < -0.5 &&
-        enemy.attackTimer <= 0
-      ) {
-        applyPlayerHit(current, 50, { shake: 0.6 });
-        enemy.attackTimer = 1.5;
-        const retreat = normalize(subtract(enemy, player));
-        enemy.x += retreat.x * 90;
-        enemy.y += retreat.y * 90;
+
+      if (enemy.state === "warning") {
+        if ((enemy.attackAnim ?? 0) <= 0) {
+          enemy.state = "attacking";
+          enemy.attackAnim = NINJA_ATTACK_ANIM_DURATION;
+          enemy.attackDidHit = false;
+        }
+      } else if (enemy.state === "attacking") {
+        enemy.x += toPlayerNorm.x * 42 * dt;
+        enemy.y += toPlayerNorm.y * 42 * dt;
+        enemy.visualAngle = approachAngle(enemy.visualAngle ?? facingAngle, facingAngle, dt * 18);
+
+        if ((enemy.attackAnim ?? 0) > 0 && !enemy.attackDidHit && (enemy.attackAnim ?? 0) <= NINJA_ATTACK_HIT_MOMENT) {
+          if (inAttackRange && behindDot < -0.35) {
+            applyPlayerHit(current, 50, { shake: 0.6 });
+          }
+          enemy.attackDidHit = true;
+        }
+
+        if ((enemy.attackAnim ?? 0) <= 0) {
+          const retreat = normalize(subtract(enemy, player));
+          const jumpDistance = enemy.radius * NINJA_JUMP_BACK_DISTANCE_MULTIPLIER;
+          const jumpSpeed = jumpDistance / NINJA_JUMP_BACK_DURATION;
+          enemy.state = "jump_back";
+          enemy.attackAnim = NINJA_JUMP_BACK_DURATION;
+          enemy.attackTimer = 1.5;
+          enemy.jumpVx = retreat.x * jumpSpeed;
+          enemy.jumpVy = retreat.y * jumpSpeed;
+        }
+      } else if (enemy.state === "jump_back") {
+        enemy.x += (enemy.jumpVx ?? 0) * dt;
+        enemy.y += (enemy.jumpVy ?? 0) * dt;
+        enemy.movingThisTick = true;
+        enemy.dashTimer = Math.max(enemy.dashTimer ?? 0, enemy.attackAnim ?? 0);
+
+        if ((enemy.attackAnim ?? 0) <= 0) {
+          enemy.state = undefined;
+          enemy.jumpVx = 0;
+          enemy.jumpVy = 0;
+        }
+      } else {
+        const behindTarget = {
+          x: player.x - playerForward.x * (enemy.backDistance ?? 64),
+          y: player.y - playerForward.y * (enemy.backDistance ?? 64),
+        };
+        const desiredDirection = normalize(subtract(behindTarget, enemy));
+        const zigzagAxis = perpendicular(desiredDirection);
+        const zigzagWave = Math.sin(current.time * NINJA_ZIGZAG_FREQUENCY + (enemy.zigzagPhase ?? 0));
+        const zigzagVelocity = zigzagWave * NINJA_ZIGZAG_LATERAL_SPEED;
+        const moveDirection = normalize({
+          x: desiredDirection.x + zigzagAxis.x * zigzagWave * NINJA_ZIGZAG_DIRECTION_BLEND,
+          y: desiredDirection.y + zigzagAxis.y * zigzagWave * NINJA_ZIGZAG_DIRECTION_BLEND,
+        });
+
+        enemy.x += (desiredDirection.x * enemy.speed + zigzagAxis.x * zigzagVelocity) * dt;
+        enemy.y += (desiredDirection.y * enemy.speed + zigzagAxis.y * zigzagVelocity) * dt;
+        enemy.visualAngle = approachAngle(
+          enemy.visualAngle ?? facingAngle,
+          Math.atan2(moveDirection.y, moveDirection.x),
+          dt * 18,
+        );
+        enemy.movingThisTick = true;
+        enemy.gaitPhase = (enemy.gaitPhase ?? rand(0, Math.PI * 2)) + dt * 12.5;
+
+        if (Math.abs(zigzagWave) > 0.8 && distanceToPlayer < 220) {
+          enemy.dashTimer = Math.max(enemy.dashTimer ?? 0, 0.16);
+        }
+
+        if (inAttackRange && behindDot < -0.5 && enemy.attackTimer <= 0) {
+          enemy.state = "warning";
+          enemy.attackAnim = NINJA_WARNING_DURATION;
+          enemy.attackDidHit = false;
+          enemy.movingThisTick = false;
+        }
       }
     }
 
     if (enemy.type === "tank") {
-      const windingUp = (enemy.windupTimer ?? 0) > 0;
+      enemy.visualAngle = approachAngle(enemy.visualAngle ?? facingAngle, facingAngle, dt * 5);
+      const inAttackRange = distanceToPlayer <= enemy.radius + player.radius + TANK_ATTACK_RANGE;
 
-      if (windingUp) {
-        enemy.windupTimer = Math.max(0, (enemy.windupTimer ?? 0) - dt);
-        if (enemy.windupTimer === 0 && distanceToPlayer <= enemy.radius + player.radius + TANK_ATTACK_RANGE) {
-          applyPlayerHit(current, 100, { stun: 1, shake: 0.85 });
+      if (enemy.state === "roar") {
+        if ((enemy.recoveryTimer ?? 0) <= 0) {
+          enemy.state = undefined;
+        }
+      } else if (!enemy.didRoar && distanceToPlayer <= TANK_ROAR_TRIGGER_RANGE) {
+        enemy.state = "roar";
+        enemy.recoveryTimer = TANK_ROAR_DURATION;
+        enemy.attackTimer = Math.max(enemy.attackTimer, 0.55);
+        enemy.didRoar = true;
+      } else if (enemy.state === "windup") {
+        if ((enemy.windupTimer ?? 0) <= 0) {
+          enemy.state = "smash";
+          enemy.attackAnim = TANK_SMASH_ANIM_DURATION;
+          enemy.attackDidHit = false;
+        }
+      } else if (enemy.state === "smash") {
+        enemy.x += toPlayerNorm.x * 36 * dt;
+        enemy.y += toPlayerNorm.y * 36 * dt;
+
+        if ((enemy.attackAnim ?? 0) > 0 && !enemy.attackDidHit && (enemy.attackAnim ?? 0) <= TANK_SMASH_HIT_MOMENT) {
+          if (inAttackRange) {
+            applyPlayerHit(current, 100, { stun: 1, shake: 0.85 });
+          }
+          enemy.attackDidHit = true;
+          enemy.impactTimer = TANK_IMPACT_FX_DURATION;
+        }
+
+        if ((enemy.attackAnim ?? 0) <= 0) {
+          enemy.state = "recovery";
+          enemy.recoveryTimer = TANK_RECOVERY_DURATION;
+        }
+      } else if (enemy.state === "recovery") {
+        if ((enemy.recoveryTimer ?? 0) <= 0) {
+          enemy.state = undefined;
         }
       } else {
         enemy.x += toPlayerNorm.x * enemy.speed * dt;
         enemy.y += toPlayerNorm.y * enemy.speed * dt;
+        enemy.movingThisTick = true;
+        enemy.gaitPhase = (enemy.gaitPhase ?? rand(0, Math.PI * 2)) + dt * 4.6;
 
-        if (distanceToPlayer <= enemy.radius + player.radius + TANK_ATTACK_RANGE && enemy.attackTimer <= 0) {
-          enemy.windupTimer = 0.7;
-          enemy.attackTimer = 3.2;
+        if (inAttackRange && enemy.attackTimer <= 0) {
+          enemy.state = "windup";
+          enemy.windupTimer = TANK_WINDUP_DURATION;
+          enemy.attackTimer = 3.1;
+          enemy.attackDidHit = false;
         }
       }
+    }
+
+    if (enemy.type === "ninja" || enemy.type === "tank") {
+      enemy.x = clamp(enemy.x, -40, CANVAS_W + 40);
+      enemy.y = clamp(enemy.y, -40, CANVAS_H + 40);
+      continue;
     }
 
     enemy.x = clamp(enemy.x, -40, CANVAS_W + 40);
@@ -879,18 +1457,26 @@ function updateProjectiles(current: GameState, dt: number) {
 
     if (projectile.type === "rocket") {
       const direction = normalize({ x: projectile.vx, y: projectile.vy });
+      projectile.harpoonedEnemyIds = projectile.harpoonedEnemyIds ?? [];
+
       for (const enemy of current.enemies) {
-        if (!enemy.alive) continue;
+        if (!enemy.alive || enemy.isDying) continue;
+        if (enemy.carriedByProjectileId && enemy.carriedByProjectileId !== projectile.id) continue;
         if (distance(projectile, enemy) <= projectile.radius + enemy.radius + 6) {
-          enemy.x += direction.x * ROCKET_PUSH_SPEED * dt;
-          enemy.y += direction.y * ROCKET_PUSH_SPEED * dt;
+          attachEnemyToRocket(projectile, enemy, direction);
         }
       }
 
+      dragHarpoonedEnemies(current, projectile, direction);
+
       if (projectile.distance >= projectile.maxDistance) {
-        projectile.alive = false;
         explodeRocket(current, projectile.x, projectile.y);
+        projectile.alive = false;
       }
+    }
+
+    if (!projectile.alive) {
+      continue;
     }
 
     if (
@@ -899,6 +1485,9 @@ function updateProjectiles(current: GameState, dt: number) {
       projectile.y < -80 ||
       projectile.y > CANVAS_H + 80
     ) {
+      if (projectile.type === "rocket") {
+        explodeRocket(current, projectile.x, projectile.y);
+      }
       projectile.alive = false;
     }
   }
@@ -946,9 +1535,25 @@ function updateParticles(current: GameState, dt: number) {
   }
 }
 
+function playerWeaponStripKey(weapon: WeaponType): PlayerWeaponStripKey {
+  if (weapon === "machine_gun") return "rifle";
+  return weapon;
+}
+
+function getPlayerShootDuration(weapon: WeaponType) {
+  const key = playerWeaponStripKey(weapon);
+  const strip = playerWeaponStrips[key].shoot;
+  return strip.frames / strip.fps;
+}
+
+function triggerPlayerShootAnim(player: Player, weapon: WeaponType) {
+  player.shootAnim = Math.max(player.shootAnim, getPlayerShootDuration(weapon));
+}
+
 function fireBullet(current: GameState, angle: number, damage: number) {
   const origin = current.player;
   const dir = vectorFromAngle(angle);
+  triggerPlayerShootAnim(origin, origin.currentWeapon);
   current.projectiles.push({
     id: nextId("bullet"),
     type: "bullet",
@@ -969,6 +1574,7 @@ function fireShotgun(current: GameState, charged: boolean) {
   const dir = vectorFromAngle(player.angle);
   const range = charged ? SHOTGUN_CHARGED_RANGE : SHOTGUN_NORMAL_RANGE;
   const coneCos = Math.cos(SHOTGUN_CONE_HALF_ANGLE);
+  triggerPlayerShootAnim(player, "shotgun");
 
   for (const enemy of current.enemies) {
     if (!enemy.alive) continue;
@@ -1009,8 +1615,46 @@ function spawnRocket(current: GameState, angle: number) {
     damage: 200,
     distance: 0,
     maxDistance: BAZOOKA_RANGE,
+    harpoonedEnemyIds: [],
     alive: true,
   });
+}
+
+function attachEnemyToRocket(projectile: Projectile, enemy: Enemy, direction: Vec2) {
+  const attached = projectile.harpoonedEnemyIds ?? (projectile.harpoonedEnemyIds = []);
+  if (!attached.includes(enemy.id)) {
+    attached.push(enemy.id);
+  }
+
+  enemy.carriedByProjectileId = projectile.id;
+  enemy.visualAngle = Math.atan2(direction.y, direction.x);
+  enemy.state = undefined;
+  enemy.attackAnim = 0;
+  enemy.attackDidHit = true;
+}
+
+function dragHarpoonedEnemies(current: GameState, projectile: Projectile, direction: Vec2) {
+  const attached = projectile.harpoonedEnemyIds ?? [];
+  if (!attached.length) return;
+
+  let distanceBehindRocket = projectile.radius + 8;
+  const survivors: string[] = [];
+
+  for (const enemyId of attached) {
+    const enemy = current.enemies.find((item) => item.id === enemyId && item.alive && !item.isDying);
+    if (!enemy) continue;
+
+    const slotDepth = distanceBehindRocket + enemy.radius;
+    enemy.x = projectile.x - direction.x * slotDepth;
+    enemy.y = projectile.y - direction.y * slotDepth;
+    enemy.visualAngle = Math.atan2(direction.y, direction.x);
+    enemy.carriedByProjectileId = projectile.id;
+    enemy.movingThisTick = true;
+    survivors.push(enemyId);
+    distanceBehindRocket += enemy.radius * 2 + 12;
+  }
+
+  projectile.harpoonedEnemyIds = survivors;
 }
 
 function spawnAcidSpit(current: GameState, enemy: Enemy, target: Vec2) {
@@ -1048,6 +1692,14 @@ function spawnAcidPool(current: GameState, x: number, y: number) {
 }
 
 function explodeRocket(current: GameState, x: number, y: number) {
+  for (const enemy of current.enemies) {
+    if (enemy.carriedByProjectileId) {
+      enemy.x = x;
+      enemy.y = y;
+      enemy.carriedByProjectileId = undefined;
+    }
+  }
+
   for (const enemy of current.enemies) {
     if (!enemy.alive) continue;
     if (distance(enemy, { x, y }) <= EXPLOSION_RADIUS + enemy.radius) {
@@ -1121,6 +1773,16 @@ function spawnEnemy(current: GameState) {
     enemy.maxHealth = 120;
     enemy.speed = 168;
     enemy.radius = 17;
+    enemy.visualAngle = Math.atan2(CANVAS_H / 2 - spawn.y, CANVAS_W / 2 - spawn.x);
+    enemy.gaitPhase = rand(0, Math.PI * 2);
+    enemy.idlePhase = rand(0, Math.PI * 2);
+    enemy.attackAnim = 0;
+    enemy.attackDidHit = false;
+    enemy.hitAnim = 0;
+    enemy.deathAnim = 0;
+    enemy.corpseFade = 0;
+    enemy.deathFlip = Math.random() < 0.5 ? -1 : 1;
+    enemy.dashTimer = 0;
     enemy.backDistance = rand(50, 80);
     enemy.zigzagPhase = rand(0, Math.PI * 2);
     enemy.attackTimer = rand(0.5, 1.4);
@@ -1131,6 +1793,18 @@ function spawnEnemy(current: GameState) {
     enemy.maxHealth = 250;
     enemy.speed = 42;
     enemy.radius = 28;
+    enemy.visualAngle = Math.atan2(CANVAS_H / 2 - spawn.y, CANVAS_W / 2 - spawn.x);
+    enemy.gaitPhase = rand(0, Math.PI * 2);
+    enemy.idlePhase = rand(0, Math.PI * 2);
+    enemy.attackAnim = 0;
+    enemy.attackDidHit = false;
+    enemy.hitAnim = 0;
+    enemy.deathAnim = 0;
+    enemy.corpseFade = 0;
+    enemy.deathFlip = Math.random() < 0.5 ? -1 : 1;
+    enemy.recoveryTimer = 0;
+    enemy.impactTimer = 0;
+    enemy.didRoar = false;
     enemy.attackTimer = rand(0.8, 1.8);
     enemy.windupTimer = 0;
   }
@@ -1208,6 +1882,9 @@ function applyPlayerHit(
   if (player.shieldTimer > 0) return;
 
   player.health = Math.max(0, player.health - damage);
+  if (!options.silent) {
+    player.hitAnim = Math.max(player.hitAnim, playerSharedStrips.hit.frames / playerSharedStrips.hit.fps);
+  }
   if (options.stun) {
     player.stunTimer = Math.max(player.stunTimer, options.stun);
   }
@@ -1217,12 +1894,26 @@ function applyPlayerHit(
   if (!options.silent) {
     sfxHit();
   }
+  if (player.health <= 0) {
+    player.deathAnim = Math.max(player.deathAnim, playerSharedStrips.death.frames / playerSharedStrips.death.fps);
+    player.shootAnim = 0;
+    player.hitAnim = 0;
+    player.stunTimer = 0;
+  }
 }
 
 function damageEnemy(current: GameState, enemy: Enemy, damage: number) {
   enemy.health -= damage;
   enemy.hurtFlash = 1;
-  enemy.hitAnim = enemy.type === "normal" || enemy.type === "acid" ? 0.22 : enemy.hitAnim;
+  if (enemy.type === "normal" || enemy.type === "acid") {
+    enemy.hitAnim = 0.22;
+  }
+  if (enemy.type === "ninja") {
+    enemy.hitAnim = 0.18;
+  }
+  if (enemy.type === "tank") {
+    enemy.hitAnim = 0.2;
+  }
   spawnParticles(current, enemy.x, enemy.y, enemyBloodColor(enemy.type), 6, 1.2);
   if (enemy.health <= 0) {
     killEnemy(current, enemy, enemyBloodColor(enemy.type));
@@ -1232,25 +1923,46 @@ function damageEnemy(current: GameState, enemy: Enemy, damage: number) {
 function killEnemy(current: GameState, enemy: Enemy, color: string) {
   if (!enemy.alive || enemy.isDying) return;
   current.kills += 1;
-  if (enemy.type === "normal" || enemy.type === "acid") {
+  if (enemy.type === "normal" || enemy.type === "acid" || enemy.type === "ninja" || enemy.type === "tank") {
     enemy.isDying = true;
-    enemy.deathAnim = enemy.type === "acid" ? ACID_DEATH_ANIM_DURATION : 0.62;
-    enemy.corpseFade = 0.55;
+    enemy.deathAnim =
+      enemy.type === "acid"
+        ? ACID_DEATH_ANIM_DURATION
+        : enemy.type === "ninja"
+          ? NINJA_DEATH_ANIM_DURATION
+          : enemy.type === "tank"
+            ? TANK_DEATH_ANIM_DURATION
+            : 0.62;
+    enemy.corpseFade = enemy.type === "tank" ? 0.8 : 0.55;
     enemy.attackAnim = 0;
     enemy.attackDidHit = true;
-    enemy.hitAnim = 0.18;
-    spawnParticles(current, enemy.x, enemy.y, color, enemy.type === "acid" ? 16 : 14, enemy.type === "acid" ? 2.9 : 2.6);
-    return;
-  }
-
-  enemy.alive = false;
-  spawnParticles(current, enemy.x, enemy.y, color, enemy.type === "tank" ? 22 : 12, enemy.type === "tank" ? 3.6 : 2.4);
-  if (enemy.type === "tank") {
-    sfxExplosion();
+    enemy.hitAnim = enemy.type === "tank" ? 0.2 : 0.18;
+    enemy.state = undefined;
+    enemy.windupTimer = 0;
+    enemy.recoveryTimer = 0;
+    enemy.impactTimer = 0;
+    enemy.jumpVx = 0;
+    enemy.jumpVy = 0;
+    enemy.carriedByProjectileId = undefined;
+    spawnParticles(
+      current,
+      enemy.x,
+      enemy.y,
+      color,
+      enemy.type === "tank" ? 22 : enemy.type === "acid" ? 16 : 14,
+      enemy.type === "tank" ? 3.6 : enemy.type === "acid" ? 2.9 : 2.6,
+    );
+    if (enemy.type === "tank") {
+      sfxExplosion();
+    }
   }
 }
 
 function finishRun() {
+  state.player.deathAnim = Math.max(
+    state.player.deathAnim,
+    playerSharedStrips.death.frames / playerSharedStrips.death.fps,
+  );
   state.status = "game_over";
   state.result = {
     score: Math.max(1, state.score),
@@ -1322,6 +2034,63 @@ function renderFrame(renderingContext: CanvasRenderingContext2D, current: GameSt
 }
 
 function drawBackground(renderingContext: CanvasRenderingContext2D, time: number) {
+  if (arenaImageAsset.loaded && arenaImageAsset.image) {
+    renderingContext.drawImage(arenaImageAsset.image, 0, 0, CANVAS_W, CANVAS_H);
+
+    const emberPulse = 0.08 + Math.sin(time * 1.8) * 0.018;
+    const warmGlow = renderingContext.createRadialGradient(
+      CANVAS_W * 0.87,
+      CANVAS_H * 0.26,
+      10,
+      CANVAS_W * 0.87,
+      CANVAS_H * 0.26,
+      CANVAS_W * 0.2,
+    );
+    warmGlow.addColorStop(0, `rgba(255, 124, 42, ${emberPulse})`);
+    warmGlow.addColorStop(1, "rgba(255, 124, 42, 0)");
+    renderingContext.fillStyle = warmGlow;
+    renderingContext.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    const lowerGlow = renderingContext.createRadialGradient(
+      CANVAS_W * 0.07,
+      CANVAS_H * 0.92,
+      10,
+      CANVAS_W * 0.07,
+      CANVAS_H * 0.92,
+      CANVAS_W * 0.18,
+    );
+    lowerGlow.addColorStop(0, `rgba(255, 108, 38, ${emberPulse * 0.95})`);
+    lowerGlow.addColorStop(1, "rgba(255, 108, 38, 0)");
+    renderingContext.fillStyle = lowerGlow;
+    renderingContext.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    const ambientShade = renderingContext.createLinearGradient(0, 0, 0, CANVAS_H);
+    ambientShade.addColorStop(0, "rgba(8, 10, 12, 0.08)");
+    ambientShade.addColorStop(1, "rgba(8, 10, 12, 0.18)");
+    renderingContext.fillStyle = ambientShade;
+    renderingContext.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    renderingContext.save();
+    const vignette = renderingContext.createRadialGradient(
+      CANVAS_W / 2,
+      CANVAS_H / 2,
+      160,
+      CANVAS_W / 2,
+      CANVAS_H / 2,
+      CANVAS_W * 0.6,
+    );
+    vignette.addColorStop(0, "rgba(255, 255, 255, 0)");
+    vignette.addColorStop(1, "rgba(0, 0, 0, 0.48)");
+    renderingContext.fillStyle = vignette;
+    renderingContext.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    renderingContext.restore();
+    return;
+  }
+
+  drawBackgroundFallback(renderingContext, time);
+}
+
+function drawBackgroundFallback(renderingContext: CanvasRenderingContext2D, time: number) {
   const gradient = renderingContext.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
   gradient.addColorStop(0, "#101712");
   gradient.addColorStop(0.45, "#16211a");
@@ -1382,7 +2151,6 @@ function drawAirstrikeWarning(renderingContext: CanvasRenderingContext2D, side: 
 function drawPlayer(renderingContext: CanvasRenderingContext2D, player: Player) {
   renderingContext.save();
   renderingContext.translate(player.x, player.y);
-  renderingContext.rotate(player.angle);
 
   if (player.shieldTimer > 0) {
     renderingContext.beginPath();
@@ -1391,6 +2159,136 @@ function drawPlayer(renderingContext: CanvasRenderingContext2D, player: Player) 
     renderingContext.lineWidth = 3;
     renderingContext.stroke();
   }
+
+  if (drawPlayerSprite(renderingContext, player)) {
+    renderingContext.restore();
+    return;
+  }
+
+  drawPlayerFallback(renderingContext, player);
+  renderingContext.restore();
+}
+
+function drawPlayerSprite(renderingContext: CanvasRenderingContext2D, player: Player) {
+  const animation = getPlayerAnimation(player);
+  const strip = animation.group === "shared"
+    ? playerSharedStrips[animation.name]
+    : playerWeaponStrips[animation.key][animation.name];
+
+  if (!strip.loaded || !strip.image) {
+    return false;
+  }
+
+  const drawWidth = strip.width * PLAYER_SPRITE_DRAW_SCALE;
+  const drawHeight = strip.height * PLAYER_SPRITE_DRAW_SCALE;
+  const rotation = player.angle - PLAYER_SPRITE_BASE_FACING;
+  const hitFlash = player.hitAnim > 0 && player.health > 0 ? 0.1 + Math.sin(player.hitAnim * 44) * 0.05 : 0;
+
+  renderingContext.save();
+  renderingContext.rotate(rotation);
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(
+    strip.image,
+    animation.frame * strip.width,
+    0,
+    strip.width,
+    strip.height,
+    -drawWidth * PLAYER_SPRITE_PIVOT_X,
+    -drawHeight * PLAYER_SPRITE_PIVOT_Y,
+    drawWidth,
+    drawHeight,
+  );
+
+  if (hitFlash > 0) {
+    renderingContext.globalCompositeOperation = "screen";
+    renderingContext.fillStyle = `rgba(255, 116, 92, ${hitFlash})`;
+    renderingContext.fillRect(
+      -drawWidth * PLAYER_SPRITE_PIVOT_X,
+      -drawHeight * PLAYER_SPRITE_PIVOT_Y,
+      drawWidth,
+      drawHeight,
+    );
+  }
+
+  renderingContext.fillStyle = "#d4dbc8";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, player.radius * 0.26, 0, Math.PI * 2);
+  renderingContext.fillStyle = player.stunTimer > 0 ? "rgba(255, 162, 104, 0.9)" : "rgba(255, 232, 156, 0.35)";
+  renderingContext.fill();
+  renderingContext.restore();
+
+  return true;
+}
+
+function getPlayerAnimation(
+  player: Player,
+):
+  | { group: "shared"; name: PlayerSharedStripName; frame: number }
+  | { group: "weapon"; key: PlayerWeaponStripKey; name: PlayerWeaponStripName; frame: number } {
+  if (player.health <= 0) {
+    const strip = playerSharedStrips.death;
+    return {
+      group: "shared",
+      name: "death",
+      frame: getTimedFrame(player.deathAnim, strip.frames / strip.fps, strip.frames),
+    };
+  }
+
+  if (player.hitAnim > 0) {
+    const strip = playerSharedStrips.hit;
+    return {
+      group: "shared",
+      name: "hit",
+      frame: getTimedFrame(player.hitAnim, strip.frames / strip.fps, strip.frames),
+    };
+  }
+
+  if (player.stunTimer > 0) {
+    const strip = playerSharedStrips.stunned;
+    return {
+      group: "shared",
+      name: "stunned",
+      frame: getLoopFrame(player.idlePhase, strip.frames),
+    };
+  }
+
+  const weaponKey = playerWeaponStripKey(player.currentWeapon);
+
+  if (player.shootAnim > 0) {
+    const strip = playerWeaponStrips[weaponKey].shoot;
+    const useLoopingShoot = weaponKey === "rifle" && player.machineStreamActive;
+    return {
+      group: "weapon",
+      key: weaponKey,
+      name: "shoot",
+      frame: useLoopingShoot
+        ? getLoopFrame(player.movePhase + player.idlePhase * 0.6, strip.frames)
+        : getTimedFrame(player.shootAnim, strip.frames / strip.fps, strip.frames),
+    };
+  }
+
+  if (player.movingAnim) {
+    const strip = playerWeaponStrips[weaponKey].walk;
+    return {
+      group: "weapon",
+      key: weaponKey,
+      name: "walk",
+      frame: getLoopFrame(player.movePhase, strip.frames),
+    };
+  }
+
+  const strip = playerWeaponStrips[weaponKey].idle;
+  return {
+    group: "weapon",
+    key: weaponKey,
+    name: "idle",
+    frame: getLoopFrame(player.idlePhase, strip.frames),
+  };
+}
+
+function drawPlayerFallback(renderingContext: CanvasRenderingContext2D, player: Player) {
+  renderingContext.save();
+  renderingContext.rotate(player.angle);
 
   renderingContext.fillStyle = "#d4dbc8";
   renderingContext.beginPath();
@@ -1410,7 +2308,6 @@ function drawPlayer(renderingContext: CanvasRenderingContext2D, player: Player) 
   renderingContext.arc(-5, -5, 3, 0, Math.PI * 2);
   renderingContext.arc(-5, 5, 3, 0, Math.PI * 2);
   renderingContext.fill();
-
   renderingContext.restore();
 }
 
@@ -1427,32 +2324,15 @@ function drawEnemy(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
   }
 
   if (enemy.type === "ninja") {
-    renderingContext.fillStyle = enemy.hurtFlash > 0 ? "#ffc0c0" : "#252525";
-    renderingContext.beginPath();
-    renderingContext.arc(0, 0, enemy.radius, 0, Math.PI * 2);
-    renderingContext.fill();
-    renderingContext.strokeStyle = "#ff6f61";
-    renderingContext.lineWidth = 3;
-    renderingContext.beginPath();
-    renderingContext.moveTo(-enemy.radius, enemy.radius - 3);
-    renderingContext.lineTo(enemy.radius + 8, -enemy.radius + 3);
-    renderingContext.stroke();
+    drawNinjaZombieSprite(renderingContext, enemy);
   }
 
   if (enemy.type === "tank") {
-    renderingContext.fillStyle = enemy.hurtFlash > 0 ? "#ffd3b8" : "#8b6250";
-    renderingContext.beginPath();
-    renderingContext.roundRect(-enemy.radius, -enemy.radius, enemy.radius * 2, enemy.radius * 2, 8);
-    renderingContext.fill();
-
-    renderingContext.fillStyle = "#2b1b16";
-    renderingContext.fillRect(enemy.radius - 3, -8, 20, 16);
-    renderingContext.beginPath();
-    renderingContext.arc(enemy.radius + 18, 0, 10, 0, Math.PI * 2);
-    renderingContext.fill();
+    drawTankZombieSprite(renderingContext, enemy);
   }
 
   renderingContext.restore();
+  drawEnemyHealthBar(renderingContext, enemy);
 }
 
 function drawProjectile(renderingContext: CanvasRenderingContext2D, projectile: Projectile) {
@@ -1500,6 +2380,27 @@ function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, tim
   const y = bonus.y + Math.sin(time * 2 + bonus.bobPhase) * 4;
   renderingContext.save();
   renderingContext.translate(bonus.x, y);
+
+  if (bonus.type === "small_medkit" && drawSmallMedkitBonus(renderingContext, bonus, time)) {
+    renderingContext.restore();
+    return;
+  }
+
+  if (bonus.type === "big_medkit" && drawBigMedkitBonus(renderingContext, bonus, time)) {
+    renderingContext.restore();
+    return;
+  }
+
+  if (bonus.type === "shield" && drawShieldBonus(renderingContext, bonus, time)) {
+    renderingContext.restore();
+    return;
+  }
+
+  if (bonus.type === "airstrike" && drawAirstrikeBonus(renderingContext, bonus, time)) {
+    renderingContext.restore();
+    return;
+  }
+
   renderingContext.fillStyle = bonusColor(bonus.type);
   renderingContext.strokeStyle = "rgba(255, 255, 255, 0.5)";
   renderingContext.lineWidth = 2;
@@ -1517,7 +2418,134 @@ function drawBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, tim
   renderingContext.restore();
 }
 
+function drawSmallMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
+  const asset = bonusImageAssets.small_medkit;
+  if (!asset.loaded || !asset.image) {
+    return false;
+  }
+
+  const pulse = 1 + Math.sin(time * 5.2 + bonus.bobPhase) * 0.04;
+  const size = SMALL_MEDKIT_DRAW_SIZE * pulse;
+  const glowRadius = bonus.radius + 6 + Math.sin(time * 4 + bonus.bobPhase) * 2;
+
+  renderingContext.fillStyle = "rgba(255, 110, 96, 0.18)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.fillStyle = "rgba(255, 255, 255, 0.16)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, bonus.radius + 1.5, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  return true;
+}
+
+function drawBigMedkitBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
+  const asset = bonusImageAssets.big_medkit;
+  if (!asset.loaded || !asset.image) {
+    return false;
+  }
+
+  const pulse = 1 + Math.sin(time * 4.6 + bonus.bobPhase) * 0.035;
+  const size = BIG_MEDKIT_DRAW_SIZE * pulse;
+  const glowRadius = bonus.radius + 8 + Math.sin(time * 3.7 + bonus.bobPhase) * 2;
+
+  renderingContext.fillStyle = "rgba(255, 156, 102, 0.22)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.fillStyle = "rgba(255, 255, 255, 0.18)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, bonus.radius + 2.5, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  return true;
+}
+
+function drawShieldBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
+  const asset = bonusImageAssets.shield;
+  if (!asset.loaded || !asset.image) {
+    return false;
+  }
+
+  const pulse = 1 + Math.sin(time * 4.2 + bonus.bobPhase) * 0.04;
+  const size = SHIELD_BONUS_DRAW_SIZE * pulse;
+  const glowRadius = bonus.radius + 8 + Math.sin(time * 4.8 + bonus.bobPhase) * 2.4;
+
+  renderingContext.fillStyle = "rgba(88, 218, 255, 0.2)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.strokeStyle = "rgba(154, 241, 255, 0.42)";
+  renderingContext.lineWidth = 2;
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
+  renderingContext.stroke();
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  return true;
+}
+
+function drawAirstrikeBonus(renderingContext: CanvasRenderingContext2D, bonus: Bonus, time: number) {
+  const asset = bonusImageAssets.airstrike;
+  if (!asset.loaded || !asset.image) {
+    return false;
+  }
+
+  const pulse = 1 + Math.sin(time * 4 + bonus.bobPhase) * 0.045;
+  const size = AIRSTRIKE_BONUS_DRAW_SIZE * pulse;
+  const glowRadius = bonus.radius + 9 + Math.sin(time * 5.1 + bonus.bobPhase) * 2.8;
+
+  renderingContext.fillStyle = "rgba(255, 161, 64, 0.24)";
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius, 0, Math.PI * 2);
+  renderingContext.fill();
+
+  renderingContext.strokeStyle = "rgba(255, 225, 132, 0.46)";
+  renderingContext.lineWidth = 2;
+  renderingContext.beginPath();
+  renderingContext.arc(0, 0, glowRadius + 2.5, 0, Math.PI * 2);
+  renderingContext.stroke();
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+  return true;
+}
+
 function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool) {
+  const asset = effectImageAssets.acid_pool;
+  const fade = pool.lifetime < 0.6 ? clamp(pool.lifetime / 0.6, 0, 1) : 1;
+
+  if (asset.loaded && asset.image) {
+    const pulse = 1 + Math.sin((3 - pool.lifetime) * 8 + pool.x * 0.03 + pool.y * 0.02) * 0.025;
+    const size = pool.radius * ACID_POOL_ART_SCALE * pulse;
+
+    renderingContext.save();
+    renderingContext.globalAlpha *= fade;
+    renderingContext.translate(pool.x, pool.y);
+
+    const glow = renderingContext.createRadialGradient(0, 0, 8, 0, 0, pool.radius * 1.08);
+    glow.addColorStop(0, "rgba(198, 255, 74, 0.22)");
+    glow.addColorStop(1, "rgba(28, 86, 29, 0)");
+    renderingContext.fillStyle = glow;
+    renderingContext.beginPath();
+    renderingContext.arc(0, 0, pool.radius * 1.08, 0, Math.PI * 2);
+    renderingContext.fill();
+
+    renderingContext.imageSmoothingEnabled = true;
+    renderingContext.drawImage(asset.image, -size / 2, -size / 2, size, size);
+    renderingContext.restore();
+    return;
+  }
+
   const gradient = renderingContext.createRadialGradient(pool.x, pool.y, 6, pool.x, pool.y, pool.radius);
   gradient.addColorStop(0, "rgba(121, 255, 138, 0.55)");
   gradient.addColorStop(1, "rgba(28, 86, 29, 0.12)");
@@ -1525,6 +2553,31 @@ function drawAcidPool(renderingContext: CanvasRenderingContext2D, pool: AcidPool
   renderingContext.beginPath();
   renderingContext.arc(pool.x, pool.y, pool.radius, 0, Math.PI * 2);
   renderingContext.fill();
+}
+
+function drawEnemyHealthBar(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
+  if (!enemy.alive || enemy.isDying || enemy.health <= 0) {
+    return;
+  }
+
+  const width = enemy.type === "tank" ? 64 : enemy.type === "ninja" ? 44 : 40;
+  const height = enemy.type === "tank" ? 7 : 6;
+  const offsetY = enemy.type === "tank" ? enemy.radius + 36 : enemy.type === "ninja" ? enemy.radius + 22 : enemy.radius + 18;
+  const ratio = clamp(enemy.health / Math.max(1, enemy.maxHealth), 0, 1);
+  const fillColor = ratio > 0.66 ? "#85ef7e" : ratio > 0.33 ? "#ffcd58" : "#ff6b63";
+
+  renderingContext.save();
+  renderingContext.translate(enemy.x, enemy.y - offsetY);
+  renderingContext.fillStyle = "rgba(6, 8, 6, 0.72)";
+  renderingContext.fillRect(-width / 2 - 2, -2, width + 4, height + 4);
+  renderingContext.fillStyle = "rgba(255, 255, 255, 0.14)";
+  renderingContext.fillRect(-width / 2, 0, width, height);
+  renderingContext.fillStyle = fillColor;
+  renderingContext.fillRect(-width / 2, 0, width * ratio, height);
+  renderingContext.strokeStyle = "rgba(255, 255, 255, 0.28)";
+  renderingContext.lineWidth = 1;
+  renderingContext.strokeRect(-width / 2, 0, width, height);
+  renderingContext.restore();
 }
 
 function drawParticle(renderingContext: CanvasRenderingContext2D, particle: Particle) {
@@ -1736,14 +2789,8 @@ function approachAngle(current: number, target: number, maxStep: number) {
   return current + Math.sign(delta) * maxStep;
 }
 
-function ensureNormalZombieSpriteAssets() {
-  if (normalZombieSpritesRequested || typeof Image === "undefined") {
-    return;
-  }
-
-  normalZombieSpritesRequested = true;
-
-  for (const strip of Object.values(normalZombieStrips)) {
+function loadZombieStripSet(strips: Record<string, ZombieStrip>) {
+  for (const strip of Object.values(strips)) {
     const image = new Image();
     image.decoding = "async";
     image.onload = () => {
@@ -1754,22 +2801,93 @@ function ensureNormalZombieSpriteAssets() {
   }
 }
 
+function loadImageAsset(asset: ImageAsset) {
+  const image = new Image();
+  image.decoding = "async";
+  image.onload = () => {
+    asset.loaded = true;
+  };
+  image.src = asset.path;
+  asset.image = image;
+}
+
+function ensureArenaBackgroundAsset() {
+  if (arenaBackgroundRequested || typeof Image === "undefined") {
+    return;
+  }
+
+  arenaBackgroundRequested = true;
+  loadImageAsset(arenaImageAsset);
+}
+
+function ensureEffectSpriteAssets() {
+  if (effectSpritesRequested || typeof Image === "undefined") {
+    return;
+  }
+
+  effectSpritesRequested = true;
+  for (const asset of Object.values(effectImageAssets)) {
+    loadImageAsset(asset);
+  }
+}
+
+function ensureBonusSpriteAssets() {
+  if (bonusSpritesRequested || typeof Image === "undefined") {
+    return;
+  }
+
+  bonusSpritesRequested = true;
+  for (const asset of Object.values(bonusImageAssets)) {
+    loadImageAsset(asset);
+  }
+}
+
+function ensureNormalZombieSpriteAssets() {
+  if (normalZombieSpritesRequested || typeof Image === "undefined") {
+    return;
+  }
+
+  normalZombieSpritesRequested = true;
+  loadZombieStripSet(normalZombieStrips);
+}
+
 function ensureAcidZombieSpriteAssets() {
   if (acidZombieSpritesRequested || typeof Image === "undefined") {
     return;
   }
 
   acidZombieSpritesRequested = true;
+  loadZombieStripSet(acidZombieStrips);
+}
 
-  for (const strip of Object.values(acidZombieStrips)) {
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () => {
-      strip.loaded = true;
-    };
-    image.src = strip.path;
-    strip.image = image;
+function ensureNinjaZombieSpriteAssets() {
+  if (ninjaZombieSpritesRequested || typeof Image === "undefined") {
+    return;
   }
+
+  ninjaZombieSpritesRequested = true;
+  loadZombieStripSet(ninjaZombieStrips);
+}
+
+function ensureTankZombieSpriteAssets() {
+  if (tankZombieSpritesRequested || typeof Image === "undefined") {
+    return;
+  }
+
+  tankZombieSpritesRequested = true;
+  loadZombieStripSet(tankZombieStrips);
+}
+
+function ensurePlayerSpriteAssets() {
+  if (playerSpritesRequested || typeof Image === "undefined") {
+    return;
+  }
+
+  playerSpritesRequested = true;
+  for (const weaponStrips of Object.values(playerWeaponStrips)) {
+    loadZombieStripSet(weaponStrips);
+  }
+  loadZombieStripSet(playerSharedStrips);
 }
 
 function drawNormalZombieSprite(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
@@ -1926,6 +3044,222 @@ function getAcidZombieAnimation(enemy: Enemy): { name: ZombieStripName; frame: n
   };
 }
 
+function getLoopFrame(phase: number | undefined, frames: number) {
+  const progress = ((phase ?? 0) / (Math.PI * 2)) % 1;
+  return ((Math.floor(progress * frames) % frames) + frames) % frames;
+}
+
+function getTimedFrame(remaining: number | undefined, duration: number, frames: number) {
+  const progress = clamp(1 - (remaining ?? 0) / duration, 0, 0.999);
+  return Math.min(frames - 1, Math.floor(progress * frames));
+}
+
+function drawNinjaZombieSprite(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
+  const animation = getNinjaZombieAnimation(enemy);
+  const strip = ninjaZombieStrips[animation.name];
+
+  if (!strip.loaded || !strip.image) {
+    drawNinjaZombieFallback(renderingContext, enemy);
+    return;
+  }
+
+  const drawWidth = strip.width * NINJA_ZOMBIE_DRAW_SCALE;
+  const drawHeight = strip.height * NINJA_ZOMBIE_DRAW_SCALE;
+  const rotation = (enemy.visualAngle ?? 0) - NINJA_ZOMBIE_BASE_FACING;
+  const corpseAlpha = enemy.isDying && (enemy.deathAnim ?? 0) <= 0
+    ? clamp((enemy.corpseFade ?? 0) / 0.55, 0, 1)
+    : 1;
+
+  renderingContext.globalAlpha *= corpseAlpha;
+  renderingContext.rotate(rotation);
+
+  if (animation.name === "death" && (enemy.deathFlip ?? 1) < 0) {
+    renderingContext.scale(-1, 1);
+  }
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(
+    strip.image,
+    animation.frame * strip.width,
+    0,
+    strip.width,
+    strip.height,
+    -drawWidth * NINJA_ZOMBIE_PIVOT_X,
+    -drawHeight * NINJA_ZOMBIE_PIVOT_Y,
+    drawWidth,
+    drawHeight,
+  );
+}
+
+function drawTankZombieSprite(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
+  const animation = getTankZombieAnimation(enemy);
+  const strip = tankZombieStrips[animation.name];
+
+  if (!strip.loaded || !strip.image) {
+    drawTankZombieFallback(renderingContext, enemy);
+    return;
+  }
+
+  const drawWidth = strip.width * TANK_ZOMBIE_DRAW_SCALE;
+  const drawHeight = strip.height * TANK_ZOMBIE_DRAW_SCALE;
+  const rotation = (enemy.visualAngle ?? 0) - TANK_ZOMBIE_BASE_FACING;
+  const corpseAlpha = enemy.isDying && (enemy.deathAnim ?? 0) <= 0
+    ? clamp((enemy.corpseFade ?? 0) / 0.8, 0, 1)
+    : 1;
+
+  renderingContext.globalAlpha *= corpseAlpha;
+  renderingContext.rotate(rotation);
+
+  if (animation.name === "death" && (enemy.deathFlip ?? 1) < 0) {
+    renderingContext.scale(-1, 1);
+  }
+
+  renderingContext.imageSmoothingEnabled = true;
+  renderingContext.drawImage(
+    strip.image,
+    animation.frame * strip.width,
+    0,
+    strip.width,
+    strip.height,
+    -drawWidth * TANK_ZOMBIE_PIVOT_X,
+    -drawHeight * TANK_ZOMBIE_PIVOT_Y,
+    drawWidth,
+    drawHeight,
+  );
+
+  const impactStrip = tankZombieStrips.hammer_impact_fx;
+  if ((enemy.impactTimer ?? 0) > 0 && impactStrip.loaded && impactStrip.image) {
+    const impactFrame = getTimedFrame(enemy.impactTimer, TANK_IMPACT_FX_DURATION, impactStrip.frames);
+    const impactAlpha = clamp((enemy.impactTimer ?? 0) / TANK_IMPACT_FX_DURATION, 0, 1);
+    renderingContext.save();
+    renderingContext.globalAlpha *= impactAlpha * 0.85;
+    renderingContext.drawImage(
+      impactStrip.image,
+      impactFrame * impactStrip.width,
+      0,
+      impactStrip.width,
+      impactStrip.height,
+      -drawWidth * 0.52,
+      drawHeight * 0.02,
+      drawWidth,
+      drawHeight,
+    );
+    renderingContext.restore();
+  }
+}
+
+function getNinjaZombieAnimation(enemy: Enemy): { name: NinjaStripName; frame: number } {
+  if (enemy.isDying) {
+    return {
+      name: "death",
+      frame: getTimedFrame(enemy.deathAnim, NINJA_DEATH_ANIM_DURATION, ninjaZombieStrips.death.frames),
+    };
+  }
+
+  if ((enemy.hitAnim ?? 0) > 0) {
+    return {
+      name: "hit",
+      frame: getTimedFrame(enemy.hitAnim, 0.18, ninjaZombieStrips.hit.frames),
+    };
+  }
+
+  if (enemy.state === "warning" && (enemy.attackAnim ?? 0) > 0) {
+    return {
+      name: "warning",
+      frame: getTimedFrame(enemy.attackAnim, NINJA_WARNING_DURATION, ninjaZombieStrips.warning.frames),
+    };
+  }
+
+  if (enemy.state === "attacking" && (enemy.attackAnim ?? 0) > 0) {
+    return {
+      name: "attack",
+      frame: getTimedFrame(enemy.attackAnim, NINJA_ATTACK_ANIM_DURATION, ninjaZombieStrips.attack.frames),
+    };
+  }
+
+  if (enemy.state === "jump_back" && (enemy.attackAnim ?? 0) > 0) {
+    return {
+      name: "jump_back",
+      frame: getTimedFrame(enemy.attackAnim, NINJA_JUMP_BACK_DURATION, ninjaZombieStrips.jump_back.frames),
+    };
+  }
+
+  if ((enemy.dashTimer ?? 0) > 0 && enemy.movingThisTick) {
+    return {
+      name: "dash",
+      frame: getLoopFrame(enemy.gaitPhase, ninjaZombieStrips.dash.frames),
+    };
+  }
+
+  if (enemy.movingThisTick) {
+    return {
+      name: "run",
+      frame: getLoopFrame(enemy.gaitPhase, ninjaZombieStrips.run.frames),
+    };
+  }
+
+  return {
+    name: "idle",
+    frame: getLoopFrame(enemy.idlePhase, ninjaZombieStrips.idle.frames),
+  };
+}
+
+function getTankZombieAnimation(enemy: Enemy): { name: TankStripName; frame: number } {
+  if (enemy.isDying) {
+    return {
+      name: "death",
+      frame: getTimedFrame(enemy.deathAnim, TANK_DEATH_ANIM_DURATION, tankZombieStrips.death.frames),
+    };
+  }
+
+  if ((enemy.hitAnim ?? 0) > 0) {
+    return {
+      name: "hit",
+      frame: getTimedFrame(enemy.hitAnim, 0.2, tankZombieStrips.hit.frames),
+    };
+  }
+
+  if (enemy.state === "windup" && (enemy.windupTimer ?? 0) > 0) {
+    return {
+      name: "attack_windup",
+      frame: getTimedFrame(enemy.windupTimer, TANK_WINDUP_DURATION, tankZombieStrips.attack_windup.frames),
+    };
+  }
+
+  if (enemy.state === "smash" && (enemy.attackAnim ?? 0) > 0) {
+    return {
+      name: "smash",
+      frame: getTimedFrame(enemy.attackAnim, TANK_SMASH_ANIM_DURATION, tankZombieStrips.smash.frames),
+    };
+  }
+
+  if (enemy.state === "recovery" && (enemy.recoveryTimer ?? 0) > 0) {
+    return {
+      name: "recovery",
+      frame: getTimedFrame(enemy.recoveryTimer, TANK_RECOVERY_DURATION, tankZombieStrips.recovery.frames),
+    };
+  }
+
+  if (enemy.state === "roar" && (enemy.recoveryTimer ?? 0) > 0) {
+    return {
+      name: "roar",
+      frame: getTimedFrame(enemy.recoveryTimer, TANK_ROAR_DURATION, tankZombieStrips.roar.frames),
+    };
+  }
+
+  if (enemy.movingThisTick) {
+    return {
+      name: "walk",
+      frame: getLoopFrame(enemy.gaitPhase, tankZombieStrips.walk.frames),
+    };
+  }
+
+  return {
+    name: "idle",
+    frame: getLoopFrame(enemy.idlePhase, tankZombieStrips.idle.frames),
+  };
+}
+
 function drawAcidZombieFallback(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
   const corpseAlpha = enemy.isDying && (enemy.deathAnim ?? 0) <= 0
     ? clamp((enemy.corpseFade ?? 0) / 0.55, 0, 1)
@@ -1940,6 +3274,44 @@ function drawAcidZombieFallback(renderingContext: CanvasRenderingContext2D, enem
   renderingContext.fillStyle = enemy.hurtFlash > 0 ? "#fff3cf" : "#7df27d";
   renderingContext.beginPath();
   renderingContext.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+  renderingContext.fill();
+}
+
+function drawNinjaZombieFallback(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
+  const corpseAlpha = enemy.isDying && (enemy.deathAnim ?? 0) <= 0
+    ? clamp((enemy.corpseFade ?? 0) / 0.55, 0, 1)
+    : 1;
+
+  renderingContext.globalAlpha *= corpseAlpha;
+  renderingContext.rotate((enemy.visualAngle ?? 0) - NINJA_ZOMBIE_BASE_FACING);
+  renderingContext.fillStyle = enemy.hurtFlash > 0 ? "#ffd1d1" : "#202224";
+  renderingContext.beginPath();
+  renderingContext.ellipse(0, 0, 18, 21, 0, 0, Math.PI * 2);
+  renderingContext.fill();
+  renderingContext.strokeStyle = "#ff7267";
+  renderingContext.lineWidth = 3;
+  renderingContext.beginPath();
+  renderingContext.moveTo(-20, 11);
+  renderingContext.lineTo(28, -16);
+  renderingContext.stroke();
+}
+
+function drawTankZombieFallback(renderingContext: CanvasRenderingContext2D, enemy: Enemy) {
+  const corpseAlpha = enemy.isDying && (enemy.deathAnim ?? 0) <= 0
+    ? clamp((enemy.corpseFade ?? 0) / 0.8, 0, 1)
+    : 1;
+
+  renderingContext.globalAlpha *= corpseAlpha;
+  renderingContext.rotate((enemy.visualAngle ?? 0) - TANK_ZOMBIE_BASE_FACING);
+  renderingContext.fillStyle = enemy.hurtFlash > 0 ? "#ffd3b8" : "#8b6250";
+  renderingContext.beginPath();
+  renderingContext.roundRect(-34, -28, 68, 56, 14);
+  renderingContext.fill();
+
+  renderingContext.fillStyle = "#2b1b16";
+  renderingContext.fillRect(-12, 24, 24, 34);
+  renderingContext.beginPath();
+  renderingContext.arc(0, 60, 14, 0, Math.PI * 2);
   renderingContext.fill();
 }
 

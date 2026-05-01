@@ -1,0 +1,94 @@
+{
+  "name": "hero-topdown",
+  "description": "Main playable character sprite pack, top-down GTA2-like camera, weapon-specific idle/walk/shoot plus shared state strips.",
+  "frameWidth": 320,
+  "frameHeight": 320,
+  "baseFacing": "forward",
+  "weapons": {
+    "pistol": {
+      "idle": {
+        "file": "hero-pistol-idle.webp",
+        "frames": 4,
+        "fps": 5
+      },
+      "walk": {
+        "file": "hero-pistol-walk.webp",
+        "frames": 8,
+        "fps": 12
+      },
+      "shoot": {
+        "file": "hero-pistol-shoot.webp",
+        "frames": 4,
+        "fps": 18
+      }
+    },
+    "rifle": {
+      "idle": {
+        "file": "hero-rifle-idle.webp",
+        "frames": 5,
+        "fps": 5
+      },
+      "walk": {
+        "file": "hero-rifle-walk.webp",
+        "frames": 8,
+        "fps": 12
+      },
+      "shoot": {
+        "file": "hero-rifle-shoot.webp",
+        "frames": 4,
+        "fps": 20
+      }
+    },
+    "shotgun": {
+      "idle": {
+        "file": "hero-shotgun-idle.webp",
+        "frames": 4,
+        "fps": 5
+      },
+      "walk": {
+        "file": "hero-shotgun-walk.webp",
+        "frames": 8,
+        "fps": 12
+      },
+      "shoot": {
+        "file": "hero-shotgun-shoot.webp",
+        "frames": 6,
+        "fps": 14
+      }
+    },
+    "bazooka": {
+      "idle": {
+        "file": "hero-bazooka-idle.webp",
+        "frames": 4,
+        "fps": 5
+      },
+      "walk": {
+        "file": "hero-bazooka-walk.webp",
+        "frames": 8,
+        "fps": 10
+      },
+      "shoot": {
+        "file": "hero-bazooka-shoot.webp",
+        "frames": 7,
+        "fps": 11
+      }
+    }
+  },
+  "shared": {
+    "hit": {
+      "file": "hero-hit.webp",
+      "frames": 3,
+      "fps": 14
+    },
+    "stunned": {
+      "file": "hero-stunned.webp",
+      "frames": 5,
+      "fps": 5
+    },
+    "death": {
+      "file": "hero-death.webp",
+      "frames": 9,
+      "fps": 9
+    }
+  }
+}
